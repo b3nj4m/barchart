@@ -13,6 +13,8 @@ Easy svg barcharts (requires d3).
           {"id": 4, "name": "item5", "value": 35}
         ],
         container: document.getElementById('#chart-container')
+      });
+      bc.render();
     });
 
 ![example bar chart](http://b3nj4m.com/example_bar_chart.png)
