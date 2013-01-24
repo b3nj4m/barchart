@@ -12,7 +12,8 @@ Easy svg barcharts (requires d3).
           {"id": 3, "name": "item4", "value": 70},
           {"id": 4, "name": "item5", "value": 35}
         ],
-        container: document.getElementById('#chart-container')
+        auto_scale: true,
+        container: document.getElementById('chart-container')
       });
       bc.render();
     });
