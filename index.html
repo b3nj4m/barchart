@@ -28,26 +28,90 @@
         <h3>Easy SVG bar-charts.</h3>
 
         <p>Easily generate animated SVG barcharts in the browser using <code>d3.js</code> and <code>barchart.js</code>.</p>
-          <pre><code>define(['barchart'], function(BarChart) {
-  var bc = new BarChart({
-    data: [
-      {"id": 0, "name": "item1", "value": 12},
-      {"id": 1, "name": "item2", "value": 20},
-      {"id": 2, "name": "item3", "value": 30},
-      {"id": 3, "name": "item4", "value": 70},
-      {"id": 4, "name": "item4", "value": 63},
-      {"id": 5, "name": "item5", "value": 35}
-    ],
-    auto_scale: true,
-    container: document.getElementById('chart-container')
-  });
-  bc.render();
-});
-</code></pre>
+
+<div class="highlight"><pre><code><span class="nx">define</span><span class="p">([</span><span class="s1">&#39;barchart&#39;</span><span class="p">],</span> <span class="kd">function</span><span class="p">(</span><span class="nx">BarChart</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="nx">bc</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">BarChart</span><span class="p">({</span>
+    <span class="nx">data</span><span class="o">:</span> <span class="p">[</span>
+      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item1&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">12</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item2&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">20</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item3&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">30</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item4&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">70</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item4&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">63</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item5&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">35</span><span class="p">}</span>
+    <span class="p">],</span>
+    <span class="nx">auto_scale</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
+    <span class="nx">container</span><span class="o">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;chart-container&#39;</span><span class="p">)</span>
+  <span class="p">});</span>
+  <span class="nx">bc</span><span class="p">.</span><span class="nx">render</span><span class="p">();</span>
+<span class="p">});</span>
+</code></pre></div>
 
         <p id="chart-container"></p>
 
       </section>
+
+      <section>
+        <h3>Config Options</h3>
+
+<div class="highlight"><pre><code><span class="kd">var</span> <span class="nx">bc</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">BarChart</span><span class="p">({</span>
+  <span class="c1">//DOM element to render the chart into</span>
+  <span class="nx">container</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
+
+  <span class="c1">//set to false if you don&#39;t want animation</span>
+  <span class="nx">is_animated</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
+
+  <span class="c1">//animation duration in ms</span>
+  <span class="nx">animation_duration</span><span class="o">:</span> <span class="mi">400</span><span class="p">,</span>
+
+  <span class="c1">//whether or not BarChart should scale to the width of the container</span>
+  <span class="nx">auto_scale</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
+
+  <span class="c1">//color to fill the bars with</span>
+  <span class="nx">bar_color</span><span class="o">:</span> <span class="s1">&#39;#00AB8E&#39;</span><span class="p">,</span>
+
+  <span class="c1">//distance between each bar</span>
+  <span class="nx">bar_spacing</span><span class="o">:</span> <span class="mi">20</span><span class="p">,</span>
+
+  <span class="c1">//padding around the outer edges of the chart</span>
+  <span class="nx">chart_padding</span><span class="o">:</span> <span class="mi">10</span><span class="p">,</span>
+
+  <span class="c1">//the data from which the chart will be rendered</span>
+  <span class="nx">data</span><span class="o">:</span> <span class="p">[],</span>
+
+  <span class="c1">//the key to use when looking up a value on an item in the data array</span>
+  <span class="nx">data_value_key</span><span class="o">:</span> <span class="s1">&#39;value&#39;</span><span class="p">,</span>
+
+  <span class="c1">//the key to use when looking up the ID on an item in the data array</span>
+  <span class="nx">data_id_key</span><span class="o">:</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+
+  <span class="c1">//default height of the chart in pixels</span>
+  <span class="nx">height</span><span class="o">:</span> <span class="mi">300</span><span class="p">,</span>
+
+  <span class="c1">//default width of the chart if not using auto_scale</span>
+  <span class="nx">width</span><span class="o">:</span> <span class="mi">700</span><span class="p">,</span>
+
+  <span class="c1">//text color of the top labels</span>
+  <span class="nx">label_top_color</span><span class="o">:</span> <span class="s1">&#39;#003D4C&#39;</span><span class="p">,</span>
+
+  <span class="c1">//text color of the labels inside the bars</span>
+  <span class="nx">label_inside_color</span><span class="o">:</span> <span class="s1">&#39;#FFF&#39;</span><span class="p">,</span>
+
+  <span class="c1">//should usually be the same as the data_value_key</span>
+  <span class="nx">label_inside_key</span><span class="o">:</span> <span class="s1">&#39;value&#39;</span><span class="p">,</span>
+
+  <span class="c1">//padding in pixels around each label</span>
+  <span class="nx">label_padding</span><span class="o">:</span> <span class="mi">3</span><span class="p">,</span>
+
+  <span class="c1">//font size of the label texts</span>
+  <span class="nx">label_size</span><span class="o">:</span> <span class="mi">16</span><span class="p">,</span>
+
+  <span class="c1">//the key to use when looking up the top label (usually a name) on an item in the data array</span>
+  <span class="nx">label_top_key</span><span class="o">:</span> <span class="s1">&#39;name&#39;</span>
+<span class="p">});</span>
+</code></pre></div>
+
+      </section>
+
       <footer>
         <p>This project is maintained by <a href="https://github.com/b3nj4m">b3nj4m</a></p>
         <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
