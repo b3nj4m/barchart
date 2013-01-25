@@ -15,8 +15,8 @@ function(BarChart) {
       {"id": 1, "name": "item2", "value": 20},
       {"id": 2, "name": "item3", "value": 30},
       {"id": 3, "name": "item4", "value": 70},
-      {"id": 4, "name": "item4", "value": 63},
-      {"id": 5, "name": "item5", "value": 35}
+      {"id": 4, "name": "item5", "value": 63},
+      {"id": 5, "name": "item6", "value": 35}
     ],
     auto_scale: true,
     container: document.getElementById('chart-container')
