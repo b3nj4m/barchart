@@ -1,3 +1,4 @@
+//TODO tooltip showing full value
 define([
   'd3'
 ],
@@ -77,7 +78,7 @@ function(d3) {
   Chart.prototype.has_rendered = false;
   Chart.prototype.is_animated = true;
   Chart.prototype.animation_duration = 400;
-  Chart.prototype.auto_scale = false; //TODO height scaling?
+  Chart.prototype.auto_scale = false;
   Chart.prototype.bar_color = '#00AB8E';
   Chart.prototype.bar_spacing = 20;
   Chart.prototype.chart_padding = 10;
@@ -210,19 +211,56 @@ function(d3) {
       .duration(this.animation_duration)
       .style('top', this.label_top_y_scale_px_accessor);
 
-    labels_inside.selectAll('div')
-      .data(this.data, this.data_id_key_accessor)
-    .transition()
-      .tween('label_inside_text', function(d) {
-        var i = d3.interpolateRound(Math.round(chart.data_min), parseInt(chart.data_value_accessor(d)));
-        return function(t) {
-          this.textContent = i(t);
-        };
-      })
-      .delay(this.animation_delay)
-      .duration(this.animation_duration);
+    //if we have positive numbers less than 5 digits in length, animate them!
+    if (this.data_min >= 1 && this.data_max < 10000 && this.data_max - this.data_min > 10) {
+      labels_inside.selectAll('div')
+        .data(this.data, this.data_id_key_accessor)
+      .transition()
+        .tween('label_inside_text', function(d) {
+          var i = d3.interpolateRound(Math.round(chart.data_min), parseInt(chart.data_value_accessor(d)));
+          return function(t) {
+            this.textContent = i(t);
+          };
+        })
+        .delay(this.animation_delay)
+        .duration(this.animation_duration);
+    }
+    //otherwise, pass them through the prettify_number routine
+    else {
+      labels_inside.selectAll('div')
+        .data(this.data, this.data_id_key_accessor)
+        .html(function(d, i) {
+          return chart.prettify_number(chart.data_value_accessor(d));
+        });
+    }
 
     this.has_rendered = true;
+  };
+
+  //TODO ability to parameterize based on range of dataset?
+  Chart.prototype.prettify_number = function(num) {
+    var suffixes = ' kMBT';
+    var abs = Math.abs(num);
+    var mag;
+    if (abs < 1)
+      mag = Math.floor(Math.log(abs) / Math.LN10);
+    else
+      //average with magnitude of num + 1 to correct for floating-point error
+      mag = Math.floor((Math.log(abs) / Math.LN10 + Math.log(abs + 1) / Math.LN10) / 2);
+
+    if (mag >= 3) {
+      var index = Math.floor(mag / 3);
+      var suffix;
+      if (suffixes.length > index)
+        suffix = suffixes.charAt(index);
+      else
+        suffix = '*10<sup>' + mag + '</sup>';
+      return (Math.round(num / Math.pow(10, mag - (mag % 3) - 1)) / 10.0) + suffix;
+    }
+    else if (mag <= -3)
+      return Math.round(num / Math.pow(10, mag)) + 'e' + mag;
+    else
+      return num.toString();
   };
 
   return Chart;
