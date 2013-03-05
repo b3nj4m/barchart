@@ -264,9 +264,7 @@
     return Chart;
   };
   if (typeof define == 'function' && define.amd) {
-    define('barchart', ['d3'], function(d3) {
-      return defineBarChart(d3);
-    });
+    define('barchart', ['d3'], defineBarChart);
   }
   else {
     return defineBarChart(window.d3);
