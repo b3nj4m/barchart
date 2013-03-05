@@ -1,8 +1,6 @@
 //TODO tooltip showing full value
-define([
-  'd3'
-],
-function(d3) {
+(function() {
+var defineBarChart = function(d3) {
   var Chart = function(options) {
     if (options) {
       for (var i in options) {
@@ -264,4 +262,13 @@ function(d3) {
   };
 
   return Chart;
-});
+};
+if (typeof define == 'function' && define.amd) {
+  define('barchart', ['d3'], function(d3) {
+    return defineBarChart(d3);
+  });
+}
+else {
+  return defineBarChart(window.d3);
+}
+}());
