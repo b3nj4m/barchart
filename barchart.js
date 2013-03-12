@@ -267,6 +267,6 @@
     define('barchart', ['d3'], defineBarChart);
   }
   else {
-    return defineBarChart(window.d3);
+    window.BarChart = defineBarChart(window.d3);
   }
 }());
