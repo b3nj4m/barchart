@@ -15,12 +15,12 @@
   <body>
     <div class="wrapper">
       <header>
-        <h1>Barchart</h1>
+        <h1>barchart.js</h1>
         <p></p>
 
         <ul>
-          <li><a href="https://github.com/b3nj4m/barchart/archive/v0.2.3.zip">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/b3nj4m/barchart/archive/v0.2.3.tar.gz">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/b3nj4m/barchart/archive/v0.3.1.zip">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/b3nj4m/barchart/archive/v0.3.1.tar.gz">Download <strong>TAR Ball</strong></a></li>
           <li><a href="https://github.com/b3nj4m/barchart">View On <strong>GitHub</strong></a></li>
         </ul>
       </header>
@@ -29,24 +29,38 @@
 
         <p>Easily generate animated SVG barcharts in the browser using <code>d3.js</code> and <code>barchart.js</code>.</p>
 
-<div class="highlight"><pre><code><span class="nx">define</span><span class="p">([</span><span class="s1">&#39;barchart&#39;</span><span class="p">],</span> <span class="kd">function</span><span class="p">(</span><span class="nx">BarChart</span><span class="p">)</span> <span class="p">{</span>
+        <p id="chart-container"></p>
+
+<div class="highlight"><pre><span class="nx">requirejs</span><span class="p">.</span><span class="nx">config</span><span class="p">({</span>
+  <span class="nx">shim</span><span class="o">:</span> <span class="p">{</span>
+    <span class="s1">&#39;d3&#39;</span><span class="o">:</span> <span class="p">{</span><span class="nx">exports</span><span class="o">:</span> <span class="s1">&#39;d3&#39;</span><span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">});</span>
+<span class="nx">define</span><span class="p">([</span><span class="s1">&#39;barchart&#39;</span><span class="p">],</span> <span class="kd">function</span><span class="p">(</span><span class="nx">BarChart</span><span class="p">)</span> <span class="p">{</span>
   <span class="kd">var</span> <span class="nx">bc</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">BarChart</span><span class="p">({</span>
-    <span class="nx">data</span><span class="o">:</span> <span class="p">[</span>
-      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item1&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">12</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item2&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">20</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item3&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">30</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item4&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">70</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item5&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">63</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="o">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;item6&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">35</span><span class="p">}</span>
-    <span class="p">],</span>
+    <span class="nx">data</span><span class="o">:</span> <span class="p">[[</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#1&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">12</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#2&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">20</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#3&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">30</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#4&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">70</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#5&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">63</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#6&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">35</span><span class="p">}</span>
+    <span class="p">],[</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#1&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">2</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#2&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">10</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#3&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">3</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#4&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">7</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#5&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">6</span><span class="p">},</span>
+      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#6&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">3</span><span class="p">}</span>
+    <span class="p">]],</span>
+    <span class="nx">bar_colors</span><span class="o">:</span> <span class="p">[</span><span class="s1">&#39;#00AB8E&#39;</span><span class="p">,</span> <span class="s1">&#39;#33CCDD&#39;</span><span class="p">],</span>
+    <span class="nx">label_inside_colors</span><span class="o">:</span> <span class="p">[</span><span class="s1">&#39;#FFF&#39;</span><span class="p">,</span> <span class="s1">&#39;#333&#39;</span><span class="p">],</span>
     <span class="nx">auto_scale</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
     <span class="nx">container</span><span class="o">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;chart-container&#39;</span><span class="p">)</span>
   <span class="p">});</span>
   <span class="nx">bc</span><span class="p">.</span><span class="nx">render</span><span class="p">();</span>
 <span class="p">});</span>
-</code></pre></div>
-
-        <p id="chart-container"></p>
+</pre></div>
 
       </section>
 
@@ -66,8 +80,8 @@
   <span class="c1">//whether or not BarChart should scale to the width of the container</span>
   <span class="nx">auto_scale</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
 
-  <span class="c1">//color to fill the bars with</span>
-  <span class="nx">bar_color</span><span class="o">:</span> <span class="s1">&#39;#00AB8E&#39;</span><span class="p">,</span>
+  <span class="c1">//color to fill the bars with (also accepts an array for multi-dataset support)</span>
+  <span class="nx">bar_colors</span><span class="o">:</span> <span class="s1">&#39;#00AB8E&#39;</span><span class="p">,</span>
 
   <span class="c1">//distance between each bar</span>
   <span class="nx">bar_spacing</span><span class="o">:</span> <span class="mi">20</span><span class="p">,</span>
@@ -81,20 +95,17 @@
   <span class="c1">//the key to use when looking up a value on an item in the data array</span>
   <span class="nx">data_value_key</span><span class="o">:</span> <span class="s1">&#39;value&#39;</span><span class="p">,</span>
 
-  <span class="c1">//the key to use when looking up the ID on an item in the data array</span>
-  <span class="nx">data_id_key</span><span class="o">:</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
-
   <span class="c1">//default height of the chart in pixels</span>
   <span class="nx">height</span><span class="o">:</span> <span class="mi">300</span><span class="p">,</span>
 
   <span class="c1">//default width of the chart if not using auto_scale</span>
   <span class="nx">width</span><span class="o">:</span> <span class="mi">700</span><span class="p">,</span>
 
-  <span class="c1">//text color of the top labels</span>
-  <span class="nx">label_top_color</span><span class="o">:</span> <span class="s1">&#39;#003D4C&#39;</span><span class="p">,</span>
+  <span class="c1">//text color of the top labels (also accepts an array for multi-dataset support)</span>
+  <span class="nx">label_top_colors</span><span class="o">:</span> <span class="s1">&#39;#003D4C&#39;</span><span class="p">,</span>
 
-  <span class="c1">//text color of the labels inside the bars</span>
-  <span class="nx">label_inside_color</span><span class="o">:</span> <span class="s1">&#39;#FFF&#39;</span><span class="p">,</span>
+  <span class="c1">//text color of the labels inside the bars (also accepts an array for multi-dataset support)</span>
+  <span class="nx">label_inside_colors</span><span class="o">:</span> <span class="s1">&#39;#FFF&#39;</span><span class="p">,</span>
 
   <span class="c1">//should usually be the same as the data_value_key</span>
   <span class="nx">label_inside_key</span><span class="o">:</span> <span class="s1">&#39;value&#39;</span><span class="p">,</span>
