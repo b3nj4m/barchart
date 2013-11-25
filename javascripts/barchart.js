@@ -1,3 +1,4 @@
+//TODO warnings about bad height_scale + domain choices
 //TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
 //TODO allow user to artificially override the extrema
@@ -171,7 +172,7 @@
     Chart.prototype.animation_duration = 400;
     Chart.prototype.auto_scale = false;
     Chart.prototype.height_scale_type = 'linear';
-    Chart.prototype.bar_colors = ['#00AB8E', '#33CCDD'];
+    Chart.prototype.bar_colors = '#00AB8E';
     Chart.prototype.bar_spacing = 2;
     Chart.prototype.group_spacing = 8;
     Chart.prototype.chart_padding = 0;
