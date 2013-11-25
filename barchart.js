@@ -189,6 +189,8 @@
     Chart.prototype.label_top_key = 'name';
   
     Chart.prototype.compute_boundaries = function() {
+      var chart = this;
+
       if (this.auto_scale) {
         this.width = this.container_elem.scrollWidth || this.width;
       }
@@ -203,13 +205,19 @@
       this.bar_width = Math.floor((this.width - this.chart_padding * 2 - (this.num_records - 1) * this.bar_spacing - (this.dataset_size - 1) * this.group_spacing) / this.num_records);
       this.label_width = this.bar_width - this.label_padding * 2;
   
-      var height_scale = d3.scale[this.height_scale_type]().domain([this.minimum, this.maximum]).range([this.min_bar_size, this.max_bar_size])
-      this.height_scale = height_scale;
+      this.height_scale = d3.scale[this.height_scale_type]()
+        .domain([this.minimum, this.maximum])
+        .range([this.min_bar_size, this.max_bar_size]);
 
       //record-group scale which maps group number to x-coord of left-most bar in the group
-      var group_x_scale = d3.scale.linear().domain([0, this.dataset_size - 1]).range([this.chart_padding, this.width - this.chart_padding - this.bar_width * this.num_datasets - (this.num_datasets - 1) * this.bar_spacing]);
+      var group_x_scale = d3.scale.linear()
+        .domain([0, this.dataset_size - 1])
+        .range([this.chart_padding, this.width - this.chart_padding - this.bar_width * this.num_datasets - (this.num_datasets - 1) * this.bar_spacing]);
+
       //record scale which maps idx within record-group to offset inside record group
-      var bar_x_scale = d3.scale.linear().domain([0, this.num_datasets - 1]).range([0, (this.num_datasets - 1) * (this.bar_width + this.bar_spacing)]);
+      var bar_x_scale = d3.scale.linear()
+        .domain([0, this.num_datasets - 1])
+        .range([0, (this.num_datasets - 1) * (this.bar_width + this.bar_spacing)]);
 
       this.x_scale = function(idx) {
         var group_num = Math.floor(idx / this.num_datasets);
@@ -218,15 +226,12 @@
       };
   
       var baseline = this.height - this.chart_padding;
-      var y_scale = function(val) {
-        return baseline - height_scale(val);
+      this.y_scale = function(val) {
+        return baseline - chart.height_scale(val);
       };
-      this.y_scale = y_scale;
   
-      var label_padding = this.label_padding;
-      var label_size = this.label_size;
       this.label_top_y_scale = function(val, ctx) {
-        var y = y_scale(val) - label_padding;
+        var y = chart.y_scale(val) - chart.label_padding;
         if (ctx !== undefined && ctx.scrollHeight) {
           y = y - ctx.scrollHeight;
         }
