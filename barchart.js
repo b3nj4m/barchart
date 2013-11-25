@@ -1,3 +1,4 @@
+//TODO warnings about bad height_scale + domain choices
 //TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
 //TODO allow user to artificially override the extrema
@@ -122,9 +123,39 @@
       chart.height_scale_px_accessor = function(d, i) {
         return chart.height_scale_accessor(d, i) + 'px';
       };
-      chart.bar_color_accessor = function(d, i) {
-        return chart.bar_colors[i % chart.num_datasets] || '#CCC';
-      };
+
+      if (isArray(chart.bar_colors)) {
+        chart.bar_color_accessor = function(d, i) {
+          return chart.bar_colors[i % chart.num_datasets] || '#999';
+        };
+      }
+      else {
+        chart.bar_color_accessor = function(d, i) {
+          return chart.bar_colors;
+        };
+      }
+
+      if (isArray(chart.label_inside_colors)) {
+        chart.label_inside_color_accessor = function(d, i) {
+          return chart.label_inside_colors[i % chart.num_datasets] || '#FFF';
+        };
+      }
+      else {
+        chart.label_inside_color_accessor = function(d, i) {
+          return chart.label_inside_colors;
+        };
+      }
+
+      if (isArray(chart.label_top_colors)) {
+        chart.label_top_color_accessor = function(d, i) {
+          return chart.label_top_colors[i % chart.num_datasets] || '#FFF';
+        };
+      }
+      else {
+        chart.label_top_color_accessor = function(d, i) {
+          return chart.label_top_colors;
+        };
+      }
     };
   
     Chart.prototype.data_id_accessor = function(d, i) {
@@ -141,7 +172,7 @@
     Chart.prototype.animation_duration = 400;
     Chart.prototype.auto_scale = false;
     Chart.prototype.height_scale_type = 'linear';
-    Chart.prototype.bar_colors = ['#00AB8E', '#33CCDD'];
+    Chart.prototype.bar_colors = '#00AB8E';
     Chart.prototype.bar_spacing = 2;
     Chart.prototype.group_spacing = 8;
     Chart.prototype.chart_padding = 0;
@@ -150,8 +181,8 @@
     Chart.prototype.data_value_key = 'value';
     Chart.prototype.height = 300;
     Chart.prototype.width = 700;
-    Chart.prototype.label_top_color = '#003D4C';
-    Chart.prototype.label_inside_color = '#FFF';
+    Chart.prototype.label_top_colors = '#003D4C';
+    Chart.prototype.label_inside_colors = '#FFF';
     Chart.prototype.label_inside_key = 'value';
     Chart.prototype.label_padding = 3;
     Chart.prototype.label_size = 16;
@@ -249,7 +280,7 @@
           .classed('label-top', true)
           .text(this.label_top_accessor)
           .style('position', 'absolute')
-          .style('color', this.label_top_color)
+          .style('color', this.label_top_color_accessor)
           .style('top', function(d, i) {
             return chart.label_top_y_scale(chart.minimum, this) + 'px';
           })
@@ -269,7 +300,7 @@
         .append('div')
           .data(this.data, this.data_id_accessor)
           .style('position', 'absolute')
-          .style('color', this.label_inside_color)
+          .style('color', this.label_inside_color_accessor)
           .style('bottom', '0')
           .style('left', '0')
           .style('text-align', 'center')
