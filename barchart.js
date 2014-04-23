@@ -392,6 +392,9 @@
   if (typeof define === 'function' && define.amd) {
     define('barchart', ['d3'], defineBarChart);
   }
+  else if (typeof exports === 'object' && typeof module !== undefined && typeof require === 'function') {
+    module.exports = defineBarChart(require('d3'));
+  }
   else {
     window.BarChart = defineBarChart(window.d3);
   }
