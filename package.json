@@ -1,0 +1,27 @@
+{
+  "name": "barchart.js",
+  "version": "0.3.2",
+  "description": "barchart.js",
+  "main": "barchart.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/b3nj4m/barchart"
+  },
+  "keywords": [
+    "chart",
+    "barchart"
+  ],
+  "author": "Ben Robbins",
+  "license": "BSD",
+  "bugs": {
+    "url": "https://github.com/b3nj4m/barchart/issues"
+  },
+  "devDependencies": {
+    "connect": "~2.19.5",
+    "gulp": "~3.8.0",
+    "gulp-util": "~2.2.16"
+  }
+}
