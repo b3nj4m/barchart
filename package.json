@@ -19,9 +19,21 @@
   "bugs": {
     "url": "https://github.com/b3nj4m/barchart/issues"
   },
+  "browser": {
+    "d3": "./d3.js"
+  },
+  "browserify-shim": {
+    "d3": {
+      "exports": "d3"
+    }
+  },
   "devDependencies": {
     "connect": "~2.19.5",
     "gulp": "~3.8.0",
-    "gulp-util": "~2.2.16"
+    "gulp-util": "~2.2.16",
+    "browserify": "~4.1.10",
+    "browserify-shim": "~3.5.0",
+    "vinyl-source-stream": "~0.1.1",
+    "gulp-clean": "~0.3.0"
   }
 }

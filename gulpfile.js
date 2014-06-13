@@ -2,12 +2,16 @@ var gulp = require('gulp');
 var gutil = require('gulp-util');
 var connect = require('connect');
 var http = require('http');
+var browserify = require('browserify');
+var shim = require('browserify-shim');
+var source = require('vinyl-source-stream');
+var clean = require('gulp-clean');
 
 var port = gutil.env.port || 8000;
 
-gulp.task('dev', function(done) {
+gulp.task('dev', ['clean', 'static-files', 'build-dev'], function(done) {
   var app = connect();
-  app.use(connect.static('.'));
+  app.use(connect.static('build'));
 
   var server = http.createServer(app);
   server.listen(port);
@@ -20,6 +24,24 @@ gulp.task('dev', function(done) {
   server.on('error', function(err) {
     done(err);
   });
+});
+
+gulp.task('clean', function() {
+  return gulp.src('build/**/*', {read: false})
+    .pipe(clean());
+});
+
+gulp.task('static-files', ['clean'], function() {
+  return gulp.src('static/**/*')
+    .pipe(gulp.dest('build'));
+});
+
+gulp.task('build-dev', ['clean'], function() {
+  return browserify({entries: ['./main.js'], baseDir: '.'})
+    .transform(shim)
+    .bundle()
+    .pipe(source('main.js'))
+    .pipe(gulp.dest('build'));
 });
 
 gulp.task('default', ['dev']);
