@@ -9666,6 +9666,7 @@
 }).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],3:[function(require,module,exports){
 var BarChart = require('./barchart');
+window.console.log('poop');
 
 var bc = new BarChart({
   data: [[

@@ -20,7 +20,7 @@
     "url": "https://github.com/b3nj4m/barchart/issues"
   },
   "browser": {
-    "d3": "./d3.js"
+    "d3": "./js/d3.js"
   },
   "browserify-shim": {
     "d3": {
