@@ -1,5 +1,4 @@
 var BarChart = require('./barchart');
-window.console.log('poop');
 
 var bc = new BarChart({
   data: [[

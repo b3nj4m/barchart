@@ -1,5 +1,7 @@
 var gulp = require('gulp');
 var gutil = require('gulp-util');
+var less = require('gulp-less');
+var concat = require('gulp-concat');
 var connect = require('connect');
 var http = require('http');
 var browserify = require('browserify');
@@ -9,7 +11,7 @@ var clean = require('gulp-clean');
 
 var port = gutil.env.port || 8000;
 
-gulp.task('dev', ['clean', 'static-files', 'build', 'watch'], function(done) {
+gulp.task('dev', ['clean', 'static-files', 'build', 'less', 'watch'], function(done) {
   var app = connect();
   app.use(connect.static('build'));
 
@@ -44,6 +46,7 @@ var staticFile = function(evnt) {
 
 gulp.task('watch', ['build'], function() {
   gulp.watch('js/**/*.js', ['build-dev']);
+  gulp.watch('css/**/*.less', ['less-dev']);
   gulp.watch('static/**/*', staticFile);
 });
 
@@ -52,10 +55,20 @@ var build = function() {
     .transform(shim)
     .bundle()
     .pipe(source('main.js'))
-    .pipe(gulp.dest('build'));
+    .pipe(gulp.dest('build/js'));
 };
 
 gulp.task('build', ['clean'], build);
 gulp.task('build-dev', build);
+
+var lessBuild = function() {
+  return gulp.src('css/**/*.less')
+    .pipe(concat('main.css'))
+    .pipe(less())
+    .pipe(gulp.dest('build/css'));
+};
+
+gulp.task('less', ['clean'], lessBuild);
+gulp.task('less-dev', lessBuild);
 
 gulp.task('default', ['dev']);
