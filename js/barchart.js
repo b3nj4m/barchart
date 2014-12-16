@@ -171,7 +171,7 @@
     Chart.prototype.is_animated = true;
     Chart.prototype.animation_duration = 400;
     Chart.prototype.auto_scale = false;
-    Chart.prototype.height_scale_type = 'linear';
+    Chart.prototype.height_scale_type = 'log';
     Chart.prototype.bar_colors = '#00AB8E';
     Chart.prototype.bar_spacing = 2;
     Chart.prototype.group_spacing = 8;
@@ -188,6 +188,7 @@
     Chart.prototype.label_size = 16;
     Chart.prototype.label_top_key = 'name';
   
+    //TODO break this down into separate functions so you can override individual calculations
     Chart.prototype.compute_boundaries = function() {
       var chart = this;
 
@@ -392,7 +393,7 @@
   if (typeof define === 'function' && define.amd) {
     define('barchart', ['d3'], defineBarChart);
   }
-  else if (typeof exports === 'object' && typeof module !== undefined && typeof require === 'function') {
+  else if (typeof exports === 'object' && typeof module !== 'undefined' && typeof require === 'function') {
     module.exports = defineBarChart(require('d3'));
   }
   else {
