@@ -2,7 +2,7 @@
   "name": "barchart.js",
   "version": "0.3.2",
   "description": "barchart.js",
-  "main": "barchart.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -19,23 +19,18 @@
   "bugs": {
     "url": "https://github.com/b3nj4m/barchart/issues"
   },
-  "browser": {
-    "d3": "./js/d3.js"
-  },
-  "browserify-shim": {
-    "d3": {
-      "exports": "d3"
-    }
-  },
   "devDependencies": {
     "connect": "~2.19.5",
     "gulp": "~3.8.0",
     "gulp-util": "~2.2.16",
     "browserify": "~4.1.10",
-    "browserify-shim": "~3.5.0",
     "vinyl-source-stream": "~0.1.1",
     "gulp-clean": "~0.3.0",
     "gulp-concat": "~2.3.3",
     "gulp-less": "~1.3.1"
+  },
+  "dependencies": {
+    "d3": "~3.5.2",
+    "underscore": "~1.7.0"
   }
 }

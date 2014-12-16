@@ -5,7 +5,6 @@ var concat = require('gulp-concat');
 var connect = require('connect');
 var http = require('http');
 var browserify = require('browserify');
-var shim = require('browserify-shim');
 var source = require('vinyl-source-stream');
 var clean = require('gulp-clean');
 
@@ -45,14 +44,13 @@ var staticFile = function(evnt) {
 };
 
 gulp.task('watch', ['build'], function() {
-  gulp.watch('js/**/*.js', ['build-dev']);
+  gulp.watch(['index.js', 'js/**/*.js'], ['build-dev']);
   gulp.watch('css/**/*.less', ['less-dev']);
   gulp.watch('static/**/*', staticFile);
 });
 
 var build = function() {
   return browserify({entries: ['./js/main.js'], baseDir: '.'})
-    .transform(shim)
     .bundle()
     .pipe(source('main.js'))
     .pipe(gulp.dest('build/js'));

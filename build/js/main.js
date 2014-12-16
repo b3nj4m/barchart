@@ -1,4 +1,6 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+//TODO unit tests
+//TODO trend lines
 //TODO warnings about bad height_scale + domain choices
 //TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
@@ -9,202 +11,138 @@
 //TODO best way to implement tooltip without coupling to a particular library?
 
 (function() {
-  var isArray = function(obj) {
-    return window.Object.prototype.toString.call(obj) === '[object Array]';
-  };
-
-  var log = function(message) {
-    if (window.console && window.console.log) {
-      window.console.log(message);
+  function defineBarChart(d3, _) {
+    function px(fn) {
+      return function() {
+        return fn.apply(this, arguments) + 'px';
+      };
     }
-  };
 
-  var uniqueId = (function() {
-    var current = 0;
+    function byIndex(fn) {
+      if (_.isFunction(fn)) {
+        return function(d, i) {
+          return fn.call(this, i);
+        };
+      }
+      else if (_.isArray(fn)) {
+        return function(d, i) {
+          return fn[i];
+        };
+      }
+      else {
+        return _.constant(fn);
+      }
+    }
 
-    return function() {
-      return current++;
-    };
-  }());
+    function byDatasetIndex(fn, num_datasets) {
+      var idx = byIndex(fn);
+      return function(d, i) {
+        return idx(d, i % num_datasets);
+      };
+    }
 
-  var defineBarChart = function(d3) {
-    var Chart = function(options) {
+    function BarChart(options) {
       if (options) {
-        for (var i in options) {
-          if (this[i] !== undefined)
-            this[i] = options[i];
-        }
-      }
-
-      if (d3.scale[this.height_scale_type] === undefined) {
-        log('invalid height_scale_type "' + this.height_scale_type + '", using "' + Chart.prototype.height_scale_type + '" instead');
-        this.height_scale_type = Chart.prototype.height_scale_type;
-      }
-
-      if (this.data === undefined || !isArray(this.data)) {
-        log('invalid data. data should be an array');
-        this.data = [this.data];
-      }
-
-      if (!isArray(this.data[0])) {
-        this.data = [this.data];
-      }
-
-      this.make_accessors();
-
-      if (this.data.length > 0) {
-        if (isArray(this.data[0])) {
-          this.num_datasets = this.data.length;
-        }
-        else {
-          this.num_datasets = 1;
-          this.data = [this.data];
-        }
-        this.dataset_size = d3.max(this.data, function(arr) { return arr.length; });
-        this.num_records = this.num_datasets * this.dataset_size;
-
-        // transform array of datasets into flat array with ordering like:
-        // [dataset1_record1, dataset2_record1, ..., dataset1_record2, dataset2_record2, ...]
-        var data = new Array(this.num_records);
-        var idx;
-        for (var record_num = 0; record_num < this.dataset_size; record_num++) {
-          for (var dataset_num = 0; dataset_num < this.num_datasets; dataset_num++) {
-            idx = record_num * this.num_datasets + dataset_num;
-            data[idx] = this.data[dataset_num][record_num];
-            data[idx].__id = uniqueId();
-          }
-        }
-
-        this.data = data;
-
-        var extrema = d3.extent(this.data, this.data_value_accessor);
-        this.minimum = extrema[0];
-        this.maximum = extrema[1];
+        _.extend(this, options);
       }
     };
-  
-    Chart.prototype.make_accessors = function() {
+
+    BarChart.prototype.data = function(data) {
+      if (!_.isArray(data)) {
+        console.warn('Data should be an array.');
+        data = [data];
+      }
+
+      if (!_.isArray(data[0])) {
+        data = [data];
+      }
+
+      this.num_datasets = data.length;
+      this.dataset_size = d3.max(data, function(arr) { return arr.length; });
+
+      data = _.flatten(_.zip.apply(_, data));
+
       var chart = this;
-      chart.data_value_accessor = function(d) {
-        if (typeof d !== 'undefined' && d !== null) {
-          return d[chart.data_value_key];
-        }
-      };
-      chart.label_top_accessor = function(d) {
-        if (typeof d !== 'undefined' && d !== null) {
-          return d[chart.label_top_key];
-        }
-      };
-      chart.label_inside_accessor = function(d) {
-        if (typeof d !== 'undefined' && d !== null) {
-          return d[chart.label_inside_key];
-        }
-      };
-      chart.x_scale_accessor = function(d, i) {
-        return chart.x_scale(i);
-      };
-      chart.x_scale_px_accessor = function(d, i) {
-        return chart.x_scale_accessor(d, i) + 'px';
-      };
-      chart.y_scale_accessor = function(d, i) {
-        return chart.y_scale(chart.data_value_accessor(d));
-      };
-      chart.y_scale_px_accessor = function(d, i) {
-        return chart.y_scale_accessor(d, i) + 'px';
-      };
-      chart.label_top_y_scale_accessor = function(d, i) {
-        return chart.label_top_y_scale(chart.data_value_accessor(d), this);
-      };
-      chart.label_top_y_scale_px_accessor = function(d, i) {
-        return chart.label_top_y_scale_accessor.apply(this, [d, i]) + 'px';
-      };
-      chart.height_scale_accessor = function(d, i) {
-        return chart.height_scale(chart.data_value_accessor(d));
-      };
-      chart.height_scale_px_accessor = function(d, i) {
-        return chart.height_scale_accessor(d, i) + 'px';
-      };
 
-      if (isArray(chart.bar_colors)) {
-        chart.bar_color_accessor = function(d, i) {
-          return chart.bar_colors[i % chart.num_datasets] || '#999';
-        };
-      }
-      else {
-        chart.bar_color_accessor = function(d, i) {
-          return chart.bar_colors;
-        };
+      this.values = _.map(data, function(point) {
+        return _.isNumber(point) ? point : point[chart.data_value_key];
+      });
+
+      this.labels_top = _.map(data, function(point) {
+        return _.isNumber(point) ? null : point[chart.label_top_key];
+      });
+
+      this.labels_inside = _.map(data, function(point) {
+        return _.isNumber(point) ? null : point[chart.label_inside_key];
+      });
+
+      this.ids = _.map(this.values, _.uniqueId);
+
+      var extrema = d3.extent(this.values);
+      this.minimum = extrema[0];
+      this.maximum = extrema[1];
+
+      this.render();
+    };
+
+    BarChart.prototype.palette = function(size, seed) {
+      seed = seed || d3.rgb(100, 100, 150);
+      var result = new Array(size);
+      var hsl;
+      result[0] = seed;
+
+      for (var i = 1; i < size; i++) {
+        hsl = d3.hsl(result[i - 1]);
+        hsl.h = (hsl.h + 30) % 361;
+        result[i] = hsl.rgb();
       }
 
-      if (isArray(chart.label_inside_colors)) {
-        chart.label_inside_color_accessor = function(d, i) {
-          return chart.label_inside_colors[i % chart.num_datasets] || '#FFF';
-        };
-      }
-      else {
-        chart.label_inside_color_accessor = function(d, i) {
-          return chart.label_inside_colors;
-        };
-      }
-
-      if (isArray(chart.label_top_colors)) {
-        chart.label_top_color_accessor = function(d, i) {
-          return chart.label_top_colors[i % chart.num_datasets] || '#FFF';
-        };
-      }
-      else {
-        chart.label_top_color_accessor = function(d, i) {
-          return chart.label_top_colors;
-        };
-      }
+      return _.map(result, function(rgb) {
+        return rgb.toString();
+      });
     };
   
-    Chart.prototype.data_id_accessor = function(d, i) {
-      return d.__id;
-    };
- 
-    Chart.prototype.animation_delay = function(d, i) {
+    BarChart.prototype.animation_delay = function(d, i) {
       return i * 100;
     };
   
-    Chart.prototype.container = null;
-    Chart.prototype.has_rendered = false;
-    Chart.prototype.is_animated = true;
-    Chart.prototype.animation_duration = 400;
-    Chart.prototype.auto_scale = false;
-    Chart.prototype.height_scale_type = 'log';
-    Chart.prototype.bar_colors = '#00AB8E';
-    Chart.prototype.bar_spacing = 2;
-    Chart.prototype.group_spacing = 8;
-    Chart.prototype.chart_padding = 0;
-    Chart.prototype.data = null;
-    Chart.prototype.numDatasets = 0;
-    Chart.prototype.data_value_key = 'value';
-    Chart.prototype.height = 300;
-    Chart.prototype.width = 700;
-    Chart.prototype.label_top_colors = '#003D4C';
-    Chart.prototype.label_inside_colors = '#FFF';
-    Chart.prototype.label_inside_key = 'value';
-    Chart.prototype.label_padding = 3;
-    Chart.prototype.label_size = 16;
-    Chart.prototype.label_top_key = 'name';
+    BarChart.prototype.container = null;
+    BarChart.prototype.has_rendered = false;
+    BarChart.prototype.is_animated = true;
+    BarChart.prototype.animation_duration = 400;
+    BarChart.prototype.auto_scale = false;
+    BarChart.prototype.height_scale_type = 'log';
+    BarChart.prototype.bar_colors = '#00AB8E';
+    BarChart.prototype.bar_spacing = 2;
+    BarChart.prototype.group_spacing = 8;
+    BarChart.prototype.chart_padding = 0;
+    BarChart.prototype.numDatasets = 0;
+    BarChart.prototype.data_value_key = 'value';
+    BarChart.prototype.height = 300;
+    BarChart.prototype.width = 700;
+    BarChart.prototype.label_top_colors = '#003D4C';
+    BarChart.prototype.label_inside_colors = '#FFF';
+    BarChart.prototype.label_inside_key = 'value';
+    BarChart.prototype.label_padding = 3;
+    BarChart.prototype.label_size = 16;
+    BarChart.prototype.label_top_key = 'name';
   
     //TODO break this down into separate functions so you can override individual calculations
-    Chart.prototype.compute_boundaries = function() {
+    BarChart.prototype.compute_boundaries = function() {
       var chart = this;
 
       if (this.auto_scale) {
         this.width = this.container_elem.scrollWidth || this.width;
       }
   
-      if (this.data.length === 0) {
+      if (this.values.length === 0) {
         return;
       }
 
       this.min_bar_size = this.label_size + this.label_padding * 2;
       this.max_bar_size = Math.max(this.min_bar_size, this.height - this.chart_padding - this.label_size - this.label_padding * 2);
 
-      this.bar_width = Math.floor((this.width - this.chart_padding * 2 - (this.num_records - 1) * this.bar_spacing - (this.dataset_size - 1) * this.group_spacing) / this.num_records);
+      this.bar_width = Math.floor((this.width - this.chart_padding * 2 - (this.values.length - 1) * this.bar_spacing - (this.dataset_size - 1) * this.group_spacing) / this.values.length);
       this.label_width = this.bar_width - this.label_padding * 2;
   
       this.height_scale = d3.scale[this.height_scale_type]()
@@ -222,8 +160,8 @@
         .range([0, (this.num_datasets - 1) * (this.bar_width + this.bar_spacing)]);
 
       this.x_scale = function(idx) {
-        var group_num = Math.floor(idx / this.num_datasets);
-        var dataset_num = idx % this.num_datasets;
+        var group_num = Math.floor(idx / chart.num_datasets);
+        var dataset_num = idx % chart.num_datasets;
         return group_x_scale(group_num) + bar_x_scale(dataset_num);
       };
   
@@ -232,66 +170,77 @@
         return baseline - chart.height_scale(val);
       };
   
-      this.label_top_y_scale = function(val, ctx) {
+      this.label_top_y_scale = function(val) {
         var y = chart.y_scale(val) - chart.label_padding;
-        if (ctx !== undefined && ctx.scrollHeight) {
-          y = y - ctx.scrollHeight;
+        if (this.scrollHeight) {
+          y = y - this.scrollHeight;
         }
         return y;
       };
     };
   
-    Chart.prototype.render = function() {
-      if (!this.has_rendered) {
-        if (this.container === undefined) {
-          this.container = document.body;
-        }
-  
-        this.$container = d3.select(this.container).append('div').style('position', 'relative');
-        this.container_elem = this.$container[0][0];
-  
-        if (this.data === undefined || this.data === null || this.data.length == 0) {
-          return;
-        }
-  
-        this.compute_boundaries();
-  
-        if (!this.is_animated) {
-          this.animation_delay = 0;
-          this.animation_duration = 0;
-        }
-  
+    BarChart.prototype.render = function() {
+      if (this.container === undefined) {
+        this.container = document.body;
+      }
+
+      this.$container = d3.select(this.container).append('div').style('position', 'relative');
+      this.container_elem = this.$container[0][0];
+
+      this.compute_boundaries();
+
+      if (!this.is_animated) {
+        this.animation_delay = 0;
+        this.animation_duration = 0;
+      }
+
+      if (!this.svg) {
         this.svg = this.$container.append('svg')
           .attr('height', this.height)
           .attr('width', this.width);
+      }
+
+      if (!this.$container) {
         this.$container
           .style('height', this.height + 'px')
           .style('width', this.width + 'px');
       }
+
+      //TODO no-data class, clear existing elements
+      if (this.values === undefined || this.values.length == 0) {
+        this.$container.classed('no-data', true);
+        return;
+      }
+      else {
+        this.$container.classed('no-data', false);
+      }
+
+      if (d3.scale[this.height_scale_type] === undefined) {
+        console.warn('Invalid height_scale_type "' + this.height_scale_type + '", using "' + BarChart.prototype.height_scale_type + '" instead.');
+        this.height_scale_type = BarChart.prototype.height_scale_type;
+      }
   
-      var bars = this.svg.selectAll('rect').data(this.data, this.data_id_accessor);
-      var labels_top = this.$container.selectAll('.label-top').data(this.data, this.data_id_accessor);
-      var labels_inside = this.$container.selectAll('.label-inside').data(this.data, this.data_id_accessor);
+      var bars = this.svg.selectAll('rect').data(this.values);
+      var labels_top = this.$container.selectAll('.label-top').data(this.values);
+      var labels_inside = this.$container.selectAll('.label-inside').data(this.values);
   
       var bars_enter = bars.enter();
       var chart = this;
       if (!bars_enter.empty()) {
         bars_enter = bars_enter.append('rect')
-          .attr('x', this.x_scale_accessor)
+          .attr('x', byIndex(this.x_scale))
           .attr('y', this.y_scale(this.minimum))
           .attr('width', this.bar_width)
           .attr('height', this.height_scale(this.minimum))
-          .style('fill', this.bar_color_accessor);
+          .style('fill', byDatasetIndex(this.bar_colors, this.num_datasets));
   
         labels_top.enter().append('div')
           .classed('label-top', true)
-          .text(this.label_top_accessor)
+          .text(byIndex(this.labels_top))
           .style('position', 'absolute')
-          .style('color', this.label_top_color_accessor)
-          .style('top', function(d, i) {
-            return chart.label_top_y_scale(chart.minimum, this) + 'px';
-          })
-          .style('left', this.x_scale_px_accessor)
+          .style('color', byDatasetIndex(this.label_top_colors, this.num_datasets))
+          .style('top', this.label_top_y_scale(this.minimum, this) + 'px')
+          .style('left', px(byIndex(this.x_scale)))
           .style('width', this.bar_width + 'px')
           .style('line-height', this.label_size + 'px')
           .style('text-align', 'center');
@@ -300,14 +249,14 @@
           .classed('label-inside', true)
           .style('position', 'absolute')
           .style('overflow', 'hidden')
-          .style('top', this.y_scale_px_accessor)
-          .style('left', this.x_scale_px_accessor)
+          .style('top', px(this.y_scale))
+          .style('left', px(byIndex(this.x_scale)))
           .style('width', this.bar_width + 'px')
-          .style('height', this.height_scale_px_accessor)
+          .style('height', px(this.height_scale))
         .append('div')
-          .data(this.data, this.data_id_accessor)
+          .data(this.values)
           .style('position', 'absolute')
-          .style('color', this.label_inside_color_accessor)
+          .style('color', byDatasetIndex(this.label_inside_colors, this.num_datasets))
           .style('bottom', '0')
           .style('left', '0')
           .style('text-align', 'center')
@@ -318,24 +267,25 @@
       bars.transition()
         .delay(this.animation_delay)
         .duration(this.animation_duration)
-        .attr('height', this.height_scale_px_accessor)
-        .attr('y', this.y_scale_accessor);
+        .attr('height', px(this.height_scale))
+        .attr('y', this.y_scale);
   
       labels_top.transition()
         .delay(this.animation_delay)
         .duration(this.animation_duration)
-        .style('top', this.label_top_y_scale_px_accessor);
+        .style('top', px(this.label_top_y_scale));
   
       //if we have positive numbers less than 5 digits in length, animate them!
       if (this.minimum >= 1 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
         labels_inside.selectAll('div')
-          .data(this.data, this.data_id_accessor)
+          .data(this.values)
           .transition()
           .tween('label_inside_text', function(d) {
             //using height_scale to ensure that the values shown are consistent with the exact scale of the graph
+            //TODO this isn't timed correctly
             var tick_scale = d3.scale.linear()
               .domain([0, 1])
-              .range([chart.min_bar_size, chart.height_scale(chart.data_value_accessor(d))]);
+              .range([chart.min_bar_size, chart.height_scale(d)]);
 
             return function(t) {
               this.textContent = Math.round(chart.height_scale.invert(tick_scale(t)));
@@ -347,18 +297,16 @@
       //otherwise, pass them through the prettify_number routine
       else {
         labels_inside.selectAll('div')
-          .data(this.data, this.data_id_accessor)
-          .html(function(d, i) {
-            return chart.prettify_number(chart.data_value_accessor(d));
-          });
+          .data(this.values)
+          .html(this.prettify_number);
       }
   
       this.has_rendered = true;
     };
   
-    Chart.prototype.LN10x2 = Math.LN10 * 2;
+    BarChart.prototype.LN10x2 = Math.LN10 * 2;
     //TODO ability to parameterize based on domain of dataset?
-    Chart.prototype.prettify_number = function(num) {
+    BarChart.prototype.prettify_number = function(num) {
       var suffixes = ' kMBT';
       var abs = Math.abs(num);
       var mag;
@@ -367,7 +315,7 @@
       }
       else {
         //average with magnitude of num + 1 to correct for floating-point error
-        mag = Math.floor((Math.log(abs) + Math.log(abs + 1)) / (Chart.prototype.LN10x2));
+        mag = Math.floor((Math.log(abs) + Math.log(abs + 1)) / (BarChart.prototype.LN10x2));
       }
   
       if (mag >= 3) {
@@ -389,25 +337,51 @@
       }
     };
   
-    return Chart;
+    return BarChart;
   };
   if (typeof define === 'function' && define.amd) {
-    define('barchart', ['d3'], defineBarChart);
+    define('barchart', ['d3', 'underscore'], defineBarChart);
   }
   else if (typeof exports === 'object' && typeof module !== 'undefined' && typeof require === 'function') {
-    module.exports = defineBarChart(require('d3'));
+    module.exports = defineBarChart(require('d3'), require('underscore'));
   }
   else {
-    window.BarChart = defineBarChart(window.d3);
+    BarChart = defineBarChart(d3, _);
   }
 }());
 
-},{"d3":2}],2:[function(require,module,exports){
-(function (global){
-;__browserify_shim_require__=require;(function browserifyShim(module, exports, require, define, browserify_shim__define__module__export__) {
+},{"d3":3,"underscore":4}],2:[function(require,module,exports){
+var BarChart = require('..');
+
+var bc = new BarChart({
+  bar_colors: ['#00AB8E', '#33CCDD'],
+  label_inside_colors: ['#FFF', '#333'],
+  auto_scale: true,
+  container: document.getElementById('chart-container')
+});
+
+bc.data([[
+  {"name": "#1", "value": 12},
+  {"name": "#2", "value": 20},
+  {"name": "#3", "value": 30},
+  {"name": "#4", "value": 70},
+  {"name": "#5", "value": 63},
+  {"name": "#6", "value": 35}
+],[
+  {"name": "#1'", "value": 2},
+  {"name": "#2'", "value": 10},
+  {"name": "#3'", "value": 3},
+  {"name": "#4'", "value": 7},
+  {"name": "#5'", "value": 6},
+  {"name": "#6'", "value": 3}
+]]);
+
+bc.render();
+
+},{"..":1}],3:[function(require,module,exports){
 !function() {
   var d3 = {
-    version: "3.4.8"
+    version: "3.5.2"
   };
   if (!Date.now) Date.now = function() {
     return +new Date();
@@ -449,10 +423,16 @@
   d3.min = function(array, f) {
     var i = -1, n = array.length, a, b;
     if (arguments.length === 1) {
-      while (++i < n && !((a = array[i]) != null && a <= a)) a = undefined;
+      while (++i < n) if ((b = array[i]) != null && b >= b) {
+        a = b;
+        break;
+      }
       while (++i < n) if ((b = array[i]) != null && a > b) a = b;
     } else {
-      while (++i < n && !((a = f.call(array, array[i], i)) != null && a <= a)) a = undefined;
+      while (++i < n) if ((b = f.call(array, array[i], i)) != null && b >= b) {
+        a = b;
+        break;
+      }
       while (++i < n) if ((b = f.call(array, array[i], i)) != null && a > b) a = b;
     }
     return a;
@@ -460,10 +440,16 @@
   d3.max = function(array, f) {
     var i = -1, n = array.length, a, b;
     if (arguments.length === 1) {
-      while (++i < n && !((a = array[i]) != null && a <= a)) a = undefined;
+      while (++i < n) if ((b = array[i]) != null && b >= b) {
+        a = b;
+        break;
+      }
       while (++i < n) if ((b = array[i]) != null && b > a) a = b;
     } else {
-      while (++i < n && !((a = f.call(array, array[i], i)) != null && a <= a)) a = undefined;
+      while (++i < n) if ((b = f.call(array, array[i], i)) != null && b >= b) {
+        a = b;
+        break;
+      }
       while (++i < n) if ((b = f.call(array, array[i], i)) != null && b > a) a = b;
     }
     return a;
@@ -471,13 +457,19 @@
   d3.extent = function(array, f) {
     var i = -1, n = array.length, a, b, c;
     if (arguments.length === 1) {
-      while (++i < n && !((a = c = array[i]) != null && a <= a)) a = c = undefined;
+      while (++i < n) if ((b = array[i]) != null && b >= b) {
+        a = c = b;
+        break;
+      }
       while (++i < n) if ((b = array[i]) != null) {
         if (a > b) a = b;
         if (c < b) c = b;
       }
     } else {
-      while (++i < n && !((a = c = f.call(array, array[i], i)) != null && a <= a)) a = undefined;
+      while (++i < n) if ((b = f.call(array, array[i], i)) != null && b >= b) {
+        a = c = b;
+        break;
+      }
       while (++i < n) if ((b = f.call(array, array[i], i)) != null) {
         if (a > b) a = b;
         if (c < b) c = b;
@@ -485,35 +477,67 @@
     }
     return [ a, c ];
   };
+  function d3_number(x) {
+    return x === null ? NaN : +x;
+  }
+  function d3_numeric(x) {
+    return !isNaN(x);
+  }
   d3.sum = function(array, f) {
     var s = 0, n = array.length, a, i = -1;
     if (arguments.length === 1) {
-      while (++i < n) if (!isNaN(a = +array[i])) s += a;
+      while (++i < n) if (d3_numeric(a = +array[i])) s += a;
     } else {
-      while (++i < n) if (!isNaN(a = +f.call(array, array[i], i))) s += a;
+      while (++i < n) if (d3_numeric(a = +f.call(array, array[i], i))) s += a;
     }
     return s;
   };
-  function d3_number(x) {
-    return x != null && !isNaN(x);
-  }
   d3.mean = function(array, f) {
     var s = 0, n = array.length, a, i = -1, j = n;
     if (arguments.length === 1) {
-      while (++i < n) if (d3_number(a = array[i])) s += a; else --j;
+      while (++i < n) if (d3_numeric(a = d3_number(array[i]))) s += a; else --j;
     } else {
-      while (++i < n) if (d3_number(a = f.call(array, array[i], i))) s += a; else --j;
+      while (++i < n) if (d3_numeric(a = d3_number(f.call(array, array[i], i)))) s += a; else --j;
     }
-    return j ? s / j : undefined;
+    if (j) return s / j;
   };
   d3.quantile = function(values, p) {
     var H = (values.length - 1) * p + 1, h = Math.floor(H), v = +values[h - 1], e = H - h;
     return e ? v + e * (values[h] - v) : v;
   };
   d3.median = function(array, f) {
-    if (arguments.length > 1) array = array.map(f);
-    array = array.filter(d3_number);
-    return array.length ? d3.quantile(array.sort(d3_ascending), .5) : undefined;
+    var numbers = [], n = array.length, a, i = -1;
+    if (arguments.length === 1) {
+      while (++i < n) if (d3_numeric(a = d3_number(array[i]))) numbers.push(a);
+    } else {
+      while (++i < n) if (d3_numeric(a = d3_number(f.call(array, array[i], i)))) numbers.push(a);
+    }
+    if (numbers.length) return d3.quantile(numbers.sort(d3_ascending), .5);
+  };
+  d3.variance = function(array, f) {
+    var n = array.length, m = 0, a, d, s = 0, i = -1, j = 0;
+    if (arguments.length === 1) {
+      while (++i < n) {
+        if (d3_numeric(a = d3_number(array[i]))) {
+          d = a - m;
+          m += d / ++j;
+          s += d * (a - m);
+        }
+      }
+    } else {
+      while (++i < n) {
+        if (d3_numeric(a = d3_number(f.call(array, array[i], i)))) {
+          d = a - m;
+          m += d / ++j;
+          s += d * (a - m);
+        }
+      }
+    }
+    if (j > 1) return s / (j - 1);
+  };
+  d3.deviation = function() {
+    var v = d3.variance.apply(this, arguments);
+    return v ? Math.sqrt(v) : v;
   };
   function d3_bisector(compare) {
     return {
@@ -545,11 +569,15 @@
       return d3_ascending(f(d), x);
     } : f);
   };
-  d3.shuffle = function(array) {
-    var m = array.length, t, i;
+  d3.shuffle = function(array, i0, i1) {
+    if ((m = arguments.length) < 3) {
+      i1 = array.length;
+      if (m < 2) i0 = 0;
+    }
+    var m = i1 - i0, t, i;
     while (m) {
       i = Math.random() * m-- | 0;
-      t = array[m], array[m] = array[i], array[i] = t;
+      t = array[m + i0], array[m + i0] = array[i + i0], array[i + i0] = t;
     }
     return array;
   };
@@ -630,80 +658,84 @@
     return k;
   }
   function d3_class(ctor, properties) {
-    try {
-      for (var key in properties) {
-        Object.defineProperty(ctor.prototype, key, {
-          value: properties[key],
-          enumerable: false
-        });
-      }
-    } catch (e) {
-      ctor.prototype = properties;
+    for (var key in properties) {
+      Object.defineProperty(ctor.prototype, key, {
+        value: properties[key],
+        enumerable: false
+      });
     }
   }
-  d3.map = function(object) {
+  d3.map = function(object, f) {
     var map = new d3_Map();
-    if (object instanceof d3_Map) object.forEach(function(key, value) {
-      map.set(key, value);
-    }); else for (var key in object) map.set(key, object[key]);
+    if (object instanceof d3_Map) {
+      object.forEach(function(key, value) {
+        map.set(key, value);
+      });
+    } else if (Array.isArray(object)) {
+      var i = -1, n = object.length, o;
+      if (arguments.length === 1) while (++i < n) map.set(i, object[i]); else while (++i < n) map.set(f.call(object, o = object[i], i), o);
+    } else {
+      for (var key in object) map.set(key, object[key]);
+    }
     return map;
   };
-  function d3_Map() {}
+  function d3_Map() {
+    this._ = Object.create(null);
+  }
+  var d3_map_proto = "__proto__", d3_map_zero = "\x00";
   d3_class(d3_Map, {
     has: d3_map_has,
     get: function(key) {
-      return this[d3_map_prefix + key];
+      return this._[d3_map_escape(key)];
     },
     set: function(key, value) {
-      return this[d3_map_prefix + key] = value;
+      return this._[d3_map_escape(key)] = value;
     },
     remove: d3_map_remove,
     keys: d3_map_keys,
     values: function() {
       var values = [];
-      this.forEach(function(key, value) {
-        values.push(value);
-      });
+      for (var key in this._) values.push(this._[key]);
       return values;
     },
     entries: function() {
       var entries = [];
-      this.forEach(function(key, value) {
-        entries.push({
-          key: key,
-          value: value
-        });
+      for (var key in this._) entries.push({
+        key: d3_map_unescape(key),
+        value: this._[key]
       });
       return entries;
     },
     size: d3_map_size,
     empty: d3_map_empty,
     forEach: function(f) {
-      for (var key in this) if (key.charCodeAt(0) === d3_map_prefixCode) f.call(this, key.substring(1), this[key]);
+      for (var key in this._) f.call(this, d3_map_unescape(key), this._[key]);
     }
   });
-  var d3_map_prefix = "\x00", d3_map_prefixCode = d3_map_prefix.charCodeAt(0);
+  function d3_map_escape(key) {
+    return (key += "") === d3_map_proto || key[0] === d3_map_zero ? d3_map_zero + key : key;
+  }
+  function d3_map_unescape(key) {
+    return (key += "")[0] === d3_map_zero ? key.slice(1) : key;
+  }
   function d3_map_has(key) {
-    return d3_map_prefix + key in this;
+    return d3_map_escape(key) in this._;
   }
   function d3_map_remove(key) {
-    key = d3_map_prefix + key;
-    return key in this && delete this[key];
+    return (key = d3_map_escape(key)) in this._ && delete this._[key];
   }
   function d3_map_keys() {
     var keys = [];
-    this.forEach(function(key) {
-      keys.push(key);
-    });
+    for (var key in this._) keys.push(d3_map_unescape(key));
     return keys;
   }
   function d3_map_size() {
     var size = 0;
-    for (var key in this) if (key.charCodeAt(0) === d3_map_prefixCode) ++size;
+    for (var key in this._) ++size;
     return size;
   }
   function d3_map_empty() {
-    for (var key in this) if (key.charCodeAt(0) === d3_map_prefixCode) return false;
+    for (var key in this._) return false;
     return true;
   }
   d3.nest = function() {
@@ -774,22 +806,21 @@
     if (array) for (var i = 0, n = array.length; i < n; ++i) set.add(array[i]);
     return set;
   };
-  function d3_Set() {}
+  function d3_Set() {
+    this._ = Object.create(null);
+  }
   d3_class(d3_Set, {
     has: d3_map_has,
-    add: function(value) {
-      this[d3_map_prefix + value] = true;
-      return value;
+    add: function(key) {
+      this._[d3_map_escape(key += "")] = true;
+      return key;
     },
-    remove: function(value) {
-      value = d3_map_prefix + value;
-      return value in this && delete this[value];
-    },
+    remove: d3_map_remove,
     values: d3_map_keys,
     size: d3_map_size,
     empty: d3_map_empty,
     forEach: function(f) {
-      for (var value in this) if (value.charCodeAt(0) === d3_map_prefixCode) f.call(this, value.substring(1));
+      for (var key in this._) f.call(this, d3_map_unescape(key));
     }
   });
   d3.behavior = {};
@@ -806,7 +837,7 @@
   }
   function d3_vendorSymbol(object, name) {
     if (name in object) return name;
-    name = name.charAt(0).toUpperCase() + name.substring(1);
+    name = name.charAt(0).toUpperCase() + name.slice(1);
     for (var i = 0, n = d3_vendorPrefixes.length; i < n; ++i) {
       var prefixName = d3_vendorPrefixes[i] + name;
       if (prefixName in object) return prefixName;
@@ -823,8 +854,8 @@
   d3_dispatch.prototype.on = function(type, listener) {
     var i = type.indexOf("."), name = "";
     if (i >= 0) {
-      name = type.substring(i + 1);
-      type = type.substring(0, i);
+      name = type.slice(i + 1);
+      type = type.slice(0, i);
     }
     if (type) return arguments.length < 2 ? this[type].on(name) : this[type].on(name, listener);
     if (arguments.length === 2) {
@@ -899,7 +930,7 @@
     return n.querySelector(s);
   }, d3_selectAll = function(s, n) {
     return n.querySelectorAll(s);
-  }, d3_selectMatcher = d3_documentElement[d3_vendorSymbol(d3_documentElement, "matchesSelector")], d3_selectMatches = function(n, s) {
+  }, d3_selectMatcher = d3_documentElement.matches || d3_documentElement[d3_vendorSymbol(d3_documentElement, "matchesSelector")], d3_selectMatches = function(n, s) {
     return d3_selectMatcher.call(n, s);
   };
   if (typeof Sizzle === "function") {
@@ -965,8 +996,8 @@
     qualify: function(name) {
       var i = name.indexOf(":"), prefix = name;
       if (i >= 0) {
-        prefix = name.substring(0, i);
-        name = name.substring(i + 1);
+        prefix = name.slice(0, i);
+        name = name.slice(i + 1);
       }
       return d3_nsPrefix.hasOwnProperty(prefix) ? {
         space: d3_nsPrefix[prefix],
@@ -1034,7 +1065,7 @@
     return new RegExp("(?:^|\\s+)" + d3.requote(name) + "(?:\\s+|$)", "g");
   }
   function d3_selection_classes(name) {
-    return name.trim().split(/^|\s+/);
+    return (name + "").trim().split(/^|\s+/);
   }
   function d3_selection_classed(name, value) {
     name = d3_selection_classes(name).map(d3_selection_classedName);
@@ -1150,11 +1181,12 @@
     });
   };
   d3_selectionPrototype.remove = function() {
-    return this.each(function() {
-      var parent = this.parentNode;
-      if (parent) parent.removeChild(this);
-    });
+    return this.each(d3_selectionRemove);
   };
+  function d3_selectionRemove() {
+    var parent = this.parentNode;
+    if (parent) parent.removeChild(this);
+  }
   d3_selectionPrototype.data = function(value, key) {
     var i = -1, n = this.length, group, node;
     if (!arguments.length) {
@@ -1169,29 +1201,26 @@
     function bind(group, groupData) {
       var i, n = group.length, m = groupData.length, n0 = Math.min(n, m), updateNodes = new Array(m), enterNodes = new Array(m), exitNodes = new Array(n), node, nodeData;
       if (key) {
-        var nodeByKeyValue = new d3_Map(), dataByKeyValue = new d3_Map(), keyValues = [], keyValue;
+        var nodeByKeyValue = new d3_Map(), keyValues = new Array(n), keyValue;
         for (i = -1; ++i < n; ) {
-          keyValue = key.call(node = group[i], node.__data__, i);
-          if (nodeByKeyValue.has(keyValue)) {
+          if (nodeByKeyValue.has(keyValue = key.call(node = group[i], node.__data__, i))) {
             exitNodes[i] = node;
           } else {
             nodeByKeyValue.set(keyValue, node);
           }
-          keyValues.push(keyValue);
+          keyValues[i] = keyValue;
         }
         for (i = -1; ++i < m; ) {
-          keyValue = key.call(groupData, nodeData = groupData[i], i);
-          if (node = nodeByKeyValue.get(keyValue)) {
+          if (!(node = nodeByKeyValue.get(keyValue = key.call(groupData, nodeData = groupData[i], i)))) {
+            enterNodes[i] = d3_selection_dataNode(nodeData);
+          } else if (node !== true) {
             updateNodes[i] = node;
             node.__data__ = nodeData;
-          } else if (!dataByKeyValue.has(keyValue)) {
-            enterNodes[i] = d3_selection_dataNode(nodeData);
           }
-          dataByKeyValue.set(keyValue, nodeData);
-          nodeByKeyValue.remove(keyValue);
+          nodeByKeyValue.set(keyValue, true);
         }
         for (i = -1; ++i < n; ) {
-          if (nodeByKeyValue.has(keyValues[i])) {
+          if (nodeByKeyValue.get(keyValues[i]) !== true) {
             exitNodes[i] = group[i];
           }
         }
@@ -1318,7 +1347,7 @@
   };
   d3_selectionPrototype.size = function() {
     var n = 0;
-    this.each(function() {
+    d3_selection_each(this, function() {
       ++n;
     });
     return n;
@@ -1366,29 +1395,6 @@
       return node;
     };
   }
-  d3_selectionPrototype.transition = function() {
-    var id = d3_transitionInheritId || ++d3_transitionId, subgroups = [], subgroup, node, transition = d3_transitionInherit || {
-      time: Date.now(),
-      ease: d3_ease_cubicInOut,
-      delay: 0,
-      duration: 250
-    };
-    for (var j = -1, m = this.length; ++j < m; ) {
-      subgroups.push(subgroup = []);
-      for (var group = this[j], i = -1, n = group.length; ++i < n; ) {
-        if (node = group[i]) d3_transitionNode(node, i, id, transition);
-        subgroup.push(node);
-      }
-    }
-    return d3_transition(subgroups, id);
-  };
-  d3_selectionPrototype.interrupt = function() {
-    return this.each(d3_selection_interrupt);
-  };
-  function d3_selection_interrupt() {
-    var lock = this.__transition__;
-    if (lock) ++lock.active;
-  }
   d3.select = function(node) {
     var group = [ typeof node === "string" ? d3_select(node, d3_document) : node ];
     group.parentNode = d3_documentElement;
@@ -1415,7 +1421,7 @@
   };
   function d3_selection_on(type, listener, capture) {
     var name = "__on" + type, i = type.indexOf("."), wrap = d3_selection_onListener;
-    if (i > 0) type = type.substring(0, i);
+    if (i > 0) type = type.slice(0, i);
     var filter = d3_selection_onFilters.get(type);
     if (filter) type = filter, wrap = d3_selection_onFilter;
     function onRemove() {
@@ -1482,9 +1488,9 @@
       w.on(name, null);
       if (d3_event_dragSelect) style[d3_event_dragSelect] = select;
       if (suppressClick) {
-        function off() {
+        var off = function() {
           w.on(click, null);
-        }
+        };
         w.on(click, function() {
           d3_eventPreventDefault();
           off();
@@ -1496,25 +1502,40 @@
   d3.mouse = function(container) {
     return d3_mousePoint(container, d3_eventSource());
   };
+  var d3_mouse_bug44083 = /WebKit/.test(d3_window.navigator.userAgent) ? -1 : 0;
   function d3_mousePoint(container, e) {
     if (e.changedTouches) e = e.changedTouches[0];
     var svg = container.ownerSVGElement || container;
     if (svg.createSVGPoint) {
       var point = svg.createSVGPoint();
-      point.x = e.clientX, point.y = e.clientY;
+      if (d3_mouse_bug44083 < 0 && (d3_window.scrollX || d3_window.scrollY)) {
+        svg = d3.select("body").append("svg").style({
+          position: "absolute",
+          top: 0,
+          left: 0,
+          margin: 0,
+          padding: 0,
+          border: "none"
+        }, "important");
+        var ctm = svg[0][0].getScreenCTM();
+        d3_mouse_bug44083 = !(ctm.f || ctm.e);
+        svg.remove();
+      }
+      if (d3_mouse_bug44083) point.x = e.pageX, point.y = e.pageY; else point.x = e.clientX, 
+      point.y = e.clientY;
       point = point.matrixTransform(container.getScreenCTM().inverse());
       return [ point.x, point.y ];
     }
     var rect = container.getBoundingClientRect();
     return [ e.clientX - rect.left - container.clientLeft, e.clientY - rect.top - container.clientTop ];
   }
-  d3.touches = function(container, touches) {
-    if (arguments.length < 2) touches = d3_eventSource().touches;
-    return touches ? d3_array(touches).map(function(touch) {
-      var point = d3_mousePoint(container, touch);
-      point.identifier = touch.identifier;
-      return point;
-    }) : [];
+  d3.touch = function(container, touches, identifier) {
+    if (arguments.length < 3) identifier = touches, touches = d3_eventSource().changedTouches;
+    if (touches) for (var i = 0, n = touches.length, touch; i < n; ++i) {
+      if ((touch = touches[i]).identifier === identifier) {
+        return d3_mousePoint(container, touch);
+      }
+    }
   };
   d3.behavior.drag = function() {
     var event = d3_eventDispatch(drag, "drag", "dragstart", "dragend"), origin = null, mousedown = dragstart(d3_noop, d3.mouse, d3_behavior_dragMouseSubject, "mousemove", "mouseup"), touchstart = dragstart(d3_behavior_dragTouchId, d3.touch, d3_behavior_dragTouchSubject, "touchmove", "touchend");
@@ -1574,7 +1595,15 @@
   function d3_behavior_dragMouseSubject() {
     return d3_window;
   }
-  var π = Math.PI, τ = 2 * π, halfπ = π / 2, ε = 1e-6, ε2 = ε * ε, d3_radians = π / 180, d3_degrees = 180 / π;
+  d3.touches = function(container, touches) {
+    if (arguments.length < 2) touches = d3_eventSource().touches;
+    return touches ? d3_array(touches).map(function(touch) {
+      var point = d3_mousePoint(container, touch);
+      point.identifier = touch.identifier;
+      return point;
+    }) : [];
+  };
+  var ε = 1e-6, ε2 = ε * ε, π = Math.PI, τ = 2 * π, τε = τ - ε, halfπ = π / 2, d3_radians = π / 180, d3_degrees = 180 / π;
   function d3_sgn(x) {
     return x > 0 ? 1 : x < 0 ? -1 : 0;
   }
@@ -1619,9 +1648,9 @@
       x: 0,
       y: 0,
       k: 1
-    }, translate0, center, size = [ 960, 500 ], scaleExtent = d3_behavior_zoomInfinity, mousedown = "mousedown.zoom", mousemove = "mousemove.zoom", mouseup = "mouseup.zoom", mousewheelTimer, touchstart = "touchstart.zoom", touchtime, event = d3_eventDispatch(zoom, "zoomstart", "zoom", "zoomend"), x0, x1, y0, y1;
+    }, translate0, center0, center, size = [ 960, 500 ], scaleExtent = d3_behavior_zoomInfinity, duration = 250, zooming = 0, mousedown = "mousedown.zoom", mousemove = "mousemove.zoom", mouseup = "mouseup.zoom", mousewheelTimer, touchstart = "touchstart.zoom", touchtime, event = d3_eventDispatch(zoom, "zoomstart", "zoom", "zoomend"), x0, x1, y0, y1;
     function zoom(g) {
-      g.on(mousedown, mousedowned).on(d3_behavior_zoomWheel + ".zoom", mousewheeled).on(mousemove, mousewheelreset).on("dblclick.zoom", dblclicked).on(touchstart, touchstarted);
+      g.on(mousedown, mousedowned).on(d3_behavior_zoomWheel + ".zoom", mousewheeled).on("dblclick.zoom", dblclicked).on(touchstart, touchstarted);
     }
     zoom.event = function(g) {
       g.each(function() {
@@ -1635,7 +1664,7 @@
             };
             zoomstarted(dispatch);
           }).tween("zoom:zoom", function() {
-            var dx = size[0], dy = size[1], cx = dx / 2, cy = dy / 2, i = d3.interpolateZoom([ (cx - view.x) / view.k, (cy - view.y) / view.k, dx / view.k ], [ (cx - view1.x) / view1.k, (cy - view1.y) / view1.k, dx / view1.k ]);
+            var dx = size[0], dy = size[1], cx = center0 ? center0[0] : dx / 2, cy = center0 ? center0[1] : dy / 2, i = d3.interpolateZoom([ (cx - view.x) / view.k, (cy - view.y) / view.k, dx / view.k ], [ (cx - view1.x) / view1.k, (cy - view1.y) / view1.k, dx / view1.k ]);
             return function(t) {
               var l = i(t), k = dx / l[2];
               this.__chart__ = view = {
@@ -1645,6 +1674,8 @@
               };
               zoomed(dispatch);
             };
+          }).each("interrupt.zoom", function() {
+            zoomended(dispatch);
           }).each("end.zoom", function() {
             zoomended(dispatch);
           });
@@ -1691,6 +1722,11 @@
       size = _ && [ +_[0], +_[1] ];
       return zoom;
     };
+    zoom.duration = function(_) {
+      if (!arguments.length) return duration;
+      duration = +_;
+      return zoom;
+    };
     zoom.x = function(z) {
       if (!arguments.length) return x1;
       x1 = z;
@@ -1727,6 +1763,18 @@
       view.x += p[0] - l[0];
       view.y += p[1] - l[1];
     }
+    function zoomTo(that, p, l, k) {
+      that.__chart__ = {
+        x: view.x,
+        y: view.y,
+        k: view.k
+      };
+      scaleTo(Math.pow(2, k));
+      translateTo(center0 = p, l);
+      that = d3.select(that);
+      if (duration > 0) that = that.transition().duration(duration);
+      that.call(zoom.event);
+    }
     function rescale() {
       if (x1) x1.domain(x0.range().map(function(x) {
         return (x - view.x) / view.k;
@@ -1736,7 +1784,7 @@
       }).map(y0.invert));
     }
     function zoomstarted(dispatch) {
-      dispatch({
+      if (!zooming++) dispatch({
         type: "zoomstart"
       });
     }
@@ -1749,9 +1797,10 @@
       });
     }
     function zoomended(dispatch) {
-      dispatch({
+      if (!--zooming) dispatch({
         type: "zoomend"
       });
+      center0 = null;
     }
     function mousedowned() {
       var that = this, target = d3.event.target, dispatch = event.of(that, arguments), dragged = 0, subject = d3.select(d3_window).on(mousemove, moved).on(mouseup, ended), location0 = location(d3.mouse(that)), dragRestore = d3_event_dragSuppress();
@@ -1763,16 +1812,16 @@
         zoomed(dispatch);
       }
       function ended() {
-        subject.on(mousemove, d3_window === that ? mousewheelreset : null).on(mouseup, null);
+        subject.on(mousemove, null).on(mouseup, null);
         dragRestore(dragged && d3.event.target === target);
         zoomended(dispatch);
       }
     }
     function touchstarted() {
-      var that = this, dispatch = event.of(that, arguments), locations0 = {}, distance0 = 0, scale0, zoomName = ".zoom-" + d3.event.changedTouches[0].identifier, touchmove = "touchmove" + zoomName, touchend = "touchend" + zoomName, targets = [], subject = d3.select(that).on(mousedown, null).on(touchstart, started), dragRestore = d3_event_dragSuppress();
-      d3_selection_interrupt.call(that);
+      var that = this, dispatch = event.of(that, arguments), locations0 = {}, distance0 = 0, scale0, zoomName = ".zoom-" + d3.event.changedTouches[0].identifier, touchmove = "touchmove" + zoomName, touchend = "touchend" + zoomName, targets = [], subject = d3.select(that), dragRestore = d3_event_dragSuppress();
       started();
       zoomstarted(dispatch);
+      subject.on(mousedown, null).on(touchstart, started);
       function relocate() {
         var touches = d3.touches(that);
         scale0 = view.k;
@@ -1792,11 +1841,9 @@
         var touches = relocate(), now = Date.now();
         if (touches.length === 1) {
           if (now - touchtime < 500) {
-            var p = touches[0], l = locations0[p.identifier];
-            scaleTo(view.k * 2);
-            translateTo(p, l);
+            var p = touches[0];
+            zoomTo(that, p, locations0[p.identifier], Math.floor(Math.log(view.k) / Math.LN2) + 1);
             d3_eventPreventDefault();
-            zoomed(dispatch);
           }
           touchtime = now;
         } else if (touches.length > 1) {
@@ -1806,6 +1853,7 @@
       }
       function moved() {
         var touches = d3.touches(that), p0, l0, p1, l1;
+        d3_selection_interrupt.call(that);
         for (var i = 0, n = touches.length; i < n; ++i, l1 = null) {
           p1 = touches[i];
           if (l1 = locations0[p1.identifier]) {
@@ -1841,29 +1889,20 @@
     }
     function mousewheeled() {
       var dispatch = event.of(this, arguments);
-      if (mousewheelTimer) clearTimeout(mousewheelTimer); else d3_selection_interrupt.call(this), 
-      zoomstarted(dispatch);
+      if (mousewheelTimer) clearTimeout(mousewheelTimer); else translate0 = location(center0 = center || d3.mouse(this)), 
+      d3_selection_interrupt.call(this), zoomstarted(dispatch);
       mousewheelTimer = setTimeout(function() {
         mousewheelTimer = null;
         zoomended(dispatch);
       }, 50);
       d3_eventPreventDefault();
-      var point = center || d3.mouse(this);
-      if (!translate0) translate0 = location(point);
       scaleTo(Math.pow(2, d3_behavior_zoomDelta() * .002) * view.k);
-      translateTo(point, translate0);
+      translateTo(center0, translate0);
       zoomed(dispatch);
-    }
-    function mousewheelreset() {
-      translate0 = null;
     }
     function dblclicked() {
-      var dispatch = event.of(this, arguments), p = d3.mouse(this), l = location(p), k = Math.log(view.k) / Math.LN2;
-      zoomstarted(dispatch);
-      scaleTo(Math.pow(2, d3.event.shiftKey ? Math.ceil(k) - 1 : Math.floor(k) + 1));
-      translateTo(p, l);
-      zoomed(dispatch);
-      zoomended(dispatch);
+      var p = d3.mouse(this), k = Math.log(view.k) / Math.LN2;
+      zoomTo(this, p, location(p), d3.event.shiftKey ? Math.ceil(k) - 1 : Math.floor(k) + 1);
     }
     return d3.rebind(zoom, event, "on");
   };
@@ -1875,29 +1914,23 @@
   }, "mousewheel") : (d3_behavior_zoomDelta = function() {
     return -d3.event.detail;
   }, "MozMousePixelScroll");
-  function d3_Color() {}
-  d3_Color.prototype.toString = function() {
+  d3.color = d3_color;
+  function d3_color() {}
+  d3_color.prototype.toString = function() {
     return this.rgb() + "";
   };
-  d3.hsl = function(h, s, l) {
-    return arguments.length === 1 ? h instanceof d3_Hsl ? d3_hsl(h.h, h.s, h.l) : d3_rgb_parse("" + h, d3_rgb_hsl, d3_hsl) : d3_hsl(+h, +s, +l);
-  };
+  d3.hsl = d3_hsl;
   function d3_hsl(h, s, l) {
-    return new d3_Hsl(h, s, l);
+    return this instanceof d3_hsl ? void (this.h = +h, this.s = +s, this.l = +l) : arguments.length < 2 ? h instanceof d3_hsl ? new d3_hsl(h.h, h.s, h.l) : d3_rgb_parse("" + h, d3_rgb_hsl, d3_hsl) : new d3_hsl(h, s, l);
   }
-  function d3_Hsl(h, s, l) {
-    this.h = h;
-    this.s = s;
-    this.l = l;
-  }
-  var d3_hslPrototype = d3_Hsl.prototype = new d3_Color();
+  var d3_hslPrototype = d3_hsl.prototype = new d3_color();
   d3_hslPrototype.brighter = function(k) {
     k = Math.pow(.7, arguments.length ? k : 1);
-    return d3_hsl(this.h, this.s, this.l / k);
+    return new d3_hsl(this.h, this.s, this.l / k);
   };
   d3_hslPrototype.darker = function(k) {
     k = Math.pow(.7, arguments.length ? k : 1);
-    return d3_hsl(this.h, this.s, k * this.l);
+    return new d3_hsl(this.h, this.s, k * this.l);
   };
   d3_hslPrototype.rgb = function() {
     return d3_hsl_rgb(this.h, this.s, this.l);
@@ -1919,25 +1952,18 @@
     function vv(h) {
       return Math.round(v(h) * 255);
     }
-    return d3_rgb(vv(h + 120), vv(h), vv(h - 120));
+    return new d3_rgb(vv(h + 120), vv(h), vv(h - 120));
   }
-  d3.hcl = function(h, c, l) {
-    return arguments.length === 1 ? h instanceof d3_Hcl ? d3_hcl(h.h, h.c, h.l) : h instanceof d3_Lab ? d3_lab_hcl(h.l, h.a, h.b) : d3_lab_hcl((h = d3_rgb_lab((h = d3.rgb(h)).r, h.g, h.b)).l, h.a, h.b) : d3_hcl(+h, +c, +l);
-  };
+  d3.hcl = d3_hcl;
   function d3_hcl(h, c, l) {
-    return new d3_Hcl(h, c, l);
+    return this instanceof d3_hcl ? void (this.h = +h, this.c = +c, this.l = +l) : arguments.length < 2 ? h instanceof d3_hcl ? new d3_hcl(h.h, h.c, h.l) : h instanceof d3_lab ? d3_lab_hcl(h.l, h.a, h.b) : d3_lab_hcl((h = d3_rgb_lab((h = d3.rgb(h)).r, h.g, h.b)).l, h.a, h.b) : new d3_hcl(h, c, l);
   }
-  function d3_Hcl(h, c, l) {
-    this.h = h;
-    this.c = c;
-    this.l = l;
-  }
-  var d3_hclPrototype = d3_Hcl.prototype = new d3_Color();
+  var d3_hclPrototype = d3_hcl.prototype = new d3_color();
   d3_hclPrototype.brighter = function(k) {
-    return d3_hcl(this.h, this.c, Math.min(100, this.l + d3_lab_K * (arguments.length ? k : 1)));
+    return new d3_hcl(this.h, this.c, Math.min(100, this.l + d3_lab_K * (arguments.length ? k : 1)));
   };
   d3_hclPrototype.darker = function(k) {
-    return d3_hcl(this.h, this.c, Math.max(0, this.l - d3_lab_K * (arguments.length ? k : 1)));
+    return new d3_hcl(this.h, this.c, Math.max(0, this.l - d3_lab_K * (arguments.length ? k : 1)));
   };
   d3_hclPrototype.rgb = function() {
     return d3_hcl_lab(this.h, this.c, this.l).rgb();
@@ -1945,27 +1971,20 @@
   function d3_hcl_lab(h, c, l) {
     if (isNaN(h)) h = 0;
     if (isNaN(c)) c = 0;
-    return d3_lab(l, Math.cos(h *= d3_radians) * c, Math.sin(h) * c);
+    return new d3_lab(l, Math.cos(h *= d3_radians) * c, Math.sin(h) * c);
   }
-  d3.lab = function(l, a, b) {
-    return arguments.length === 1 ? l instanceof d3_Lab ? d3_lab(l.l, l.a, l.b) : l instanceof d3_Hcl ? d3_hcl_lab(l.l, l.c, l.h) : d3_rgb_lab((l = d3.rgb(l)).r, l.g, l.b) : d3_lab(+l, +a, +b);
-  };
+  d3.lab = d3_lab;
   function d3_lab(l, a, b) {
-    return new d3_Lab(l, a, b);
-  }
-  function d3_Lab(l, a, b) {
-    this.l = l;
-    this.a = a;
-    this.b = b;
+    return this instanceof d3_lab ? void (this.l = +l, this.a = +a, this.b = +b) : arguments.length < 2 ? l instanceof d3_lab ? new d3_lab(l.l, l.a, l.b) : l instanceof d3_hcl ? d3_hcl_lab(l.h, l.c, l.l) : d3_rgb_lab((l = d3_rgb(l)).r, l.g, l.b) : new d3_lab(l, a, b);
   }
   var d3_lab_K = 18;
   var d3_lab_X = .95047, d3_lab_Y = 1, d3_lab_Z = 1.08883;
-  var d3_labPrototype = d3_Lab.prototype = new d3_Color();
+  var d3_labPrototype = d3_lab.prototype = new d3_color();
   d3_labPrototype.brighter = function(k) {
-    return d3_lab(Math.min(100, this.l + d3_lab_K * (arguments.length ? k : 1)), this.a, this.b);
+    return new d3_lab(Math.min(100, this.l + d3_lab_K * (arguments.length ? k : 1)), this.a, this.b);
   };
   d3_labPrototype.darker = function(k) {
-    return d3_lab(Math.max(0, this.l - d3_lab_K * (arguments.length ? k : 1)), this.a, this.b);
+    return new d3_lab(Math.max(0, this.l - d3_lab_K * (arguments.length ? k : 1)), this.a, this.b);
   };
   d3_labPrototype.rgb = function() {
     return d3_lab_rgb(this.l, this.a, this.b);
@@ -1975,10 +1994,10 @@
     x = d3_lab_xyz(x) * d3_lab_X;
     y = d3_lab_xyz(y) * d3_lab_Y;
     z = d3_lab_xyz(z) * d3_lab_Z;
-    return d3_rgb(d3_xyz_rgb(3.2404542 * x - 1.5371385 * y - .4985314 * z), d3_xyz_rgb(-.969266 * x + 1.8760108 * y + .041556 * z), d3_xyz_rgb(.0556434 * x - .2040259 * y + 1.0572252 * z));
+    return new d3_rgb(d3_xyz_rgb(3.2404542 * x - 1.5371385 * y - .4985314 * z), d3_xyz_rgb(-.969266 * x + 1.8760108 * y + .041556 * z), d3_xyz_rgb(.0556434 * x - .2040259 * y + 1.0572252 * z));
   }
   function d3_lab_hcl(l, a, b) {
-    return l > 0 ? d3_hcl(Math.atan2(b, a) * d3_degrees, Math.sqrt(a * a + b * b), l) : d3_hcl(NaN, NaN, l);
+    return l > 0 ? new d3_hcl(Math.atan2(b, a) * d3_degrees, Math.sqrt(a * a + b * b), l) : new d3_hcl(NaN, NaN, l);
   }
   function d3_lab_xyz(x) {
     return x > .206893034 ? x * x * x : (x - 4 / 29) / 7.787037;
@@ -1989,36 +2008,29 @@
   function d3_xyz_rgb(r) {
     return Math.round(255 * (r <= .00304 ? 12.92 * r : 1.055 * Math.pow(r, 1 / 2.4) - .055));
   }
-  d3.rgb = function(r, g, b) {
-    return arguments.length === 1 ? r instanceof d3_Rgb ? d3_rgb(r.r, r.g, r.b) : d3_rgb_parse("" + r, d3_rgb, d3_hsl_rgb) : d3_rgb(~~r, ~~g, ~~b);
-  };
+  d3.rgb = d3_rgb;
+  function d3_rgb(r, g, b) {
+    return this instanceof d3_rgb ? void (this.r = ~~r, this.g = ~~g, this.b = ~~b) : arguments.length < 2 ? r instanceof d3_rgb ? new d3_rgb(r.r, r.g, r.b) : d3_rgb_parse("" + r, d3_rgb, d3_hsl_rgb) : new d3_rgb(r, g, b);
+  }
   function d3_rgbNumber(value) {
-    return d3_rgb(value >> 16, value >> 8 & 255, value & 255);
+    return new d3_rgb(value >> 16, value >> 8 & 255, value & 255);
   }
   function d3_rgbString(value) {
     return d3_rgbNumber(value) + "";
   }
-  function d3_rgb(r, g, b) {
-    return new d3_Rgb(r, g, b);
-  }
-  function d3_Rgb(r, g, b) {
-    this.r = r;
-    this.g = g;
-    this.b = b;
-  }
-  var d3_rgbPrototype = d3_Rgb.prototype = new d3_Color();
+  var d3_rgbPrototype = d3_rgb.prototype = new d3_color();
   d3_rgbPrototype.brighter = function(k) {
     k = Math.pow(.7, arguments.length ? k : 1);
     var r = this.r, g = this.g, b = this.b, i = 30;
-    if (!r && !g && !b) return d3_rgb(i, i, i);
+    if (!r && !g && !b) return new d3_rgb(i, i, i);
     if (r && r < i) r = i;
     if (g && g < i) g = i;
     if (b && b < i) b = i;
-    return d3_rgb(Math.min(255, ~~(r / k)), Math.min(255, ~~(g / k)), Math.min(255, ~~(b / k)));
+    return new d3_rgb(Math.min(255, r / k), Math.min(255, g / k), Math.min(255, b / k));
   };
   d3_rgbPrototype.darker = function(k) {
     k = Math.pow(.7, arguments.length ? k : 1);
-    return d3_rgb(~~(k * this.r), ~~(k * this.g), ~~(k * this.b));
+    return new d3_rgb(k * this.r, k * this.g, k * this.b);
   };
   d3_rgbPrototype.hsl = function() {
     return d3_rgb_hsl(this.r, this.g, this.b);
@@ -2047,7 +2059,7 @@
       }
     }
     if (color = d3_rgb_names.get(format)) return rgb(color.r, color.g, color.b);
-    if (format != null && format.charAt(0) === "#" && !isNaN(color = parseInt(format.substring(1), 16))) {
+    if (format != null && format.charAt(0) === "#" && !isNaN(color = parseInt(format.slice(1), 16))) {
       if (format.length === 4) {
         r = (color & 3840) >> 4;
         r = r >> 4 | r;
@@ -2073,7 +2085,7 @@
       h = NaN;
       s = l > 0 && l < 1 ? 0 : h;
     }
-    return d3_hsl(h, s, l);
+    return new d3_hsl(h, s, l);
   }
   function d3_rgb_lab(r, g, b) {
     r = d3_rgb_xyz(r);
@@ -2266,7 +2278,7 @@
     };
     function respond() {
       var status = request.status, result;
-      if (!status && request.responseText || status >= 200 && status < 300 || status === 304) {
+      if (!status && d3_xhrHasResponse(request) || status >= 200 && status < 300 || status === 304) {
         try {
           result = response.call(xhr, request);
         } catch (e) {
@@ -2338,6 +2350,10 @@
       callback(error == null ? request : null);
     } : callback;
   }
+  function d3_xhrHasResponse(request) {
+    var type = request.responseType;
+    return type && type !== "text" ? request.response : request.responseText;
+  }
   d3.dsv = function(delimiter, mimeType) {
     var reFormat = new RegExp('["' + delimiter + "\n]"), delimiterCode = delimiter.charCodeAt(0);
     function dsv(url, row, callback) {
@@ -2390,7 +2406,7 @@
           } else if (c === 10) {
             eol = true;
           }
-          return text.substring(j + 1, i).replace(/""/g, '"');
+          return text.slice(j + 1, i).replace(/""/g, '"');
         }
         while (I < N) {
           var c = text.charCodeAt(I++), k = 1;
@@ -2398,9 +2414,9 @@
             eol = true;
             if (text.charCodeAt(I) === 10) ++I, ++k;
           } else if (c !== delimiterCode) continue;
-          return text.substring(j, I - k);
+          return text.slice(j, I - k);
         }
-        return text.substring(j);
+        return text.slice(j);
       }
       while ((t = token()) !== EOF) {
         var a = [];
@@ -2408,7 +2424,7 @@
           a.push(t);
           t = token();
         }
-        if (f && !(a = f(a, n++))) continue;
+        if (f && (a = f(a, n++)) == null) continue;
         rows.push(a);
       }
       return rows;
@@ -2442,14 +2458,6 @@
   };
   d3.csv = d3.dsv(",", "text/csv");
   d3.tsv = d3.dsv("	", "text/tab-separated-values");
-  d3.touch = function(container, touches, identifier) {
-    if (arguments.length < 3) identifier = touches, touches = d3_eventSource().changedTouches;
-    if (touches) for (var i = 0, n = touches.length, touch; i < n; ++i) {
-      if ((touch = touches[i]).identifier === identifier) {
-        return d3_mousePoint(container, touch);
-      }
-    }
-  };
   var d3_timer_queueHead, d3_timer_queueTail, d3_timer_interval, d3_timer_timeout, d3_timer_active, d3_timer_frame = d3_window[d3_vendorSymbol(d3_window, "requestAnimationFrame")] || function(callback) {
     setTimeout(callback, 17);
   };
@@ -2539,21 +2547,22 @@
     };
   }
   function d3_locale_numberFormat(locale) {
-    var locale_decimal = locale.decimal, locale_thousands = locale.thousands, locale_grouping = locale.grouping, locale_currency = locale.currency, formatGroup = locale_grouping ? function(value) {
-      var i = value.length, t = [], j = 0, g = locale_grouping[0];
+    var locale_decimal = locale.decimal, locale_thousands = locale.thousands, locale_grouping = locale.grouping, locale_currency = locale.currency, formatGroup = locale_grouping && locale_thousands ? function(value, width) {
+      var i = value.length, t = [], j = 0, g = locale_grouping[0], length = 0;
       while (i > 0 && g > 0) {
+        if (length + g + 1 > width) g = Math.max(1, width - length);
         t.push(value.substring(i -= g, i + g));
+        if ((length += g + 1) > width) break;
         g = locale_grouping[j = (j + 1) % locale_grouping.length];
       }
       return t.reverse().join(locale_thousands);
     } : d3_identity;
     return function(specifier) {
-      var match = d3_format_re.exec(specifier), fill = match[1] || " ", align = match[2] || ">", sign = match[3] || "", symbol = match[4] || "", zfill = match[5], width = +match[6], comma = match[7], precision = match[8], type = match[9], scale = 1, prefix = "", suffix = "", integer = false;
+      var match = d3_format_re.exec(specifier), fill = match[1] || " ", align = match[2] || ">", sign = match[3] || "-", symbol = match[4] || "", zfill = match[5], width = +match[6], comma = match[7], precision = match[8], type = match[9], scale = 1, prefix = "", suffix = "", integer = false, exponent = true;
       if (precision) precision = +precision.substring(1);
       if (zfill || fill === "0" && align === "=") {
         zfill = fill = "0";
         align = "=";
-        if (comma) width -= Math.floor((width - 1) / 4);
       }
       switch (type) {
        case "n":
@@ -2580,6 +2589,8 @@
         if (symbol === "#") prefix = "0" + type.toLowerCase();
 
        case "c":
+        exponent = false;
+
        case "d":
         integer = true;
         precision = 0;
@@ -2600,7 +2611,7 @@
       return function(value) {
         var fullSuffix = suffix;
         if (integer && value % 1) return "";
-        var negative = value < 0 || value === 0 && 1 / value < 0 ? (value = -value, "-") : sign;
+        var negative = value < 0 || value === 0 && 1 / value < 0 ? (value = -value, "-") : sign === "-" ? "" : sign;
         if (scale < 0) {
           var unit = d3.formatPrefix(value, precision);
           value = unit.scale(value);
@@ -2609,10 +2620,17 @@
           value *= scale;
         }
         value = type(value, precision);
-        var i = value.lastIndexOf("."), before = i < 0 ? value : value.substring(0, i), after = i < 0 ? "" : locale_decimal + value.substring(i + 1);
-        if (!zfill && comma) before = formatGroup(before);
+        var i = value.lastIndexOf("."), before, after;
+        if (i < 0) {
+          var j = exponent ? value.lastIndexOf("e") : -1;
+          if (j < 0) before = value, after = ""; else before = value.substring(0, j), after = value.substring(j);
+        } else {
+          before = value.substring(0, i);
+          after = locale_decimal + value.substring(i + 1);
+        }
+        if (!zfill && comma) before = formatGroup(before, Infinity);
         var length = prefix.length + before.length + after.length + (zcomma ? 0 : negative.length), padding = length < width ? new Array(length = width - length + 1).join(fill) : "";
-        if (zcomma) before = formatGroup(padding + before);
+        if (zcomma) before = formatGroup(padding + before, padding.length ? width - after.length : Infinity);
         negative += prefix;
         value = before + after;
         return (align === "<" ? negative + value + padding : align === ">" ? padding + negative + value : align === "^" ? padding.substring(0, length >>= 1) + negative + value + padding.substring(length) : negative + (zcomma ? value : padding + value)) + fullSuffix;
@@ -2835,14 +2853,14 @@
         var string = [], i = -1, j = 0, c, p, f;
         while (++i < n) {
           if (template.charCodeAt(i) === 37) {
-            string.push(template.substring(j, i));
+            string.push(template.slice(j, i));
             if ((p = d3_time_formatPads[c = template.charAt(++i)]) != null) c = template.charAt(++i);
             if (f = d3_time_formats[c]) c = f(date, p == null ? c === "e" ? " " : "0" : p);
             string.push(c);
             j = i + 1;
           }
         }
-        string.push(template.substring(j, i));
+        string.push(template.slice(j, i));
         return string.join("");
       }
       format.parse = function(string) {
@@ -2863,7 +2881,7 @@
           date.setFullYear(d.y, 0, 1);
           date.setFullYear(d.y, 0, "W" in d ? (d.w + 6) % 7 + d.W * 7 - (date.getDay() + 5) % 7 : d.w + d.U * 7 - (date.getDay() + 6) % 7);
         } else date.setFullYear(d.y, d.m, d.d);
-        date.setHours(d.H + Math.floor(d.Z / 100), d.M + d.Z % 100, d.S, d.L);
+        date.setHours(d.H + (d.Z / 100 | 0), d.M + d.Z % 100, d.S, d.L);
         return localZ ? date._ : date;
       };
       format.toString = function() {
@@ -3009,22 +3027,22 @@
     };
     function d3_time_parseWeekdayAbbrev(date, string, i) {
       d3_time_dayAbbrevRe.lastIndex = 0;
-      var n = d3_time_dayAbbrevRe.exec(string.substring(i));
+      var n = d3_time_dayAbbrevRe.exec(string.slice(i));
       return n ? (date.w = d3_time_dayAbbrevLookup.get(n[0].toLowerCase()), i + n[0].length) : -1;
     }
     function d3_time_parseWeekday(date, string, i) {
       d3_time_dayRe.lastIndex = 0;
-      var n = d3_time_dayRe.exec(string.substring(i));
+      var n = d3_time_dayRe.exec(string.slice(i));
       return n ? (date.w = d3_time_dayLookup.get(n[0].toLowerCase()), i + n[0].length) : -1;
     }
     function d3_time_parseMonthAbbrev(date, string, i) {
       d3_time_monthAbbrevRe.lastIndex = 0;
-      var n = d3_time_monthAbbrevRe.exec(string.substring(i));
+      var n = d3_time_monthAbbrevRe.exec(string.slice(i));
       return n ? (date.m = d3_time_monthAbbrevLookup.get(n[0].toLowerCase()), i + n[0].length) : -1;
     }
     function d3_time_parseMonth(date, string, i) {
       d3_time_monthRe.lastIndex = 0;
-      var n = d3_time_monthRe.exec(string.substring(i));
+      var n = d3_time_monthRe.exec(string.slice(i));
       return n ? (date.m = d3_time_monthLookup.get(n[0].toLowerCase()), i + n[0].length) : -1;
     }
     function d3_time_parseLocaleFull(date, string, i) {
@@ -3037,7 +3055,7 @@
       return d3_time_parse(date, d3_time_formats.X.toString(), string, i);
     }
     function d3_time_parseAmPm(date, string, i) {
-      var n = d3_time_periodLookup.get(string.substring(i, i += 2).toLowerCase());
+      var n = d3_time_periodLookup.get(string.slice(i, i += 2).toLowerCase());
       return n == null ? -1 : (date.p = n, i);
     }
     return d3_time_format;
@@ -3061,31 +3079,31 @@
   }
   function d3_time_parseWeekdayNumber(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 1));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 1));
     return n ? (date.w = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseWeekNumberSunday(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i));
+    var n = d3_time_numberRe.exec(string.slice(i));
     return n ? (date.U = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseWeekNumberMonday(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i));
+    var n = d3_time_numberRe.exec(string.slice(i));
     return n ? (date.W = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseFullYear(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 4));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 4));
     return n ? (date.y = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseYear(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 2));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 2));
     return n ? (date.y = d3_time_expandYear(+n[0]), i + n[0].length) : -1;
   }
   function d3_time_parseZone(date, string, i) {
-    return /^[+-]\d{4}$/.test(string = string.substring(i, i + 5)) ? (date.Z = -string, 
+    return /^[+-]\d{4}$/.test(string = string.slice(i, i + 5)) ? (date.Z = -string, 
     i + 5) : -1;
   }
   function d3_time_expandYear(d) {
@@ -3093,46 +3111,46 @@
   }
   function d3_time_parseMonthNumber(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 2));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 2));
     return n ? (date.m = n[0] - 1, i + n[0].length) : -1;
   }
   function d3_time_parseDay(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 2));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 2));
     return n ? (date.d = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseDayOfYear(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 3));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 3));
     return n ? (date.j = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseHour24(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 2));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 2));
     return n ? (date.H = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseMinutes(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 2));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 2));
     return n ? (date.M = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseSeconds(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 2));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 2));
     return n ? (date.S = +n[0], i + n[0].length) : -1;
   }
   function d3_time_parseMilliseconds(date, string, i) {
     d3_time_numberRe.lastIndex = 0;
-    var n = d3_time_numberRe.exec(string.substring(i, i + 3));
+    var n = d3_time_numberRe.exec(string.slice(i, i + 3));
     return n ? (date.L = +n[0], i + n[0].length) : -1;
   }
   function d3_time_zone(d) {
-    var z = d.getTimezoneOffset(), zs = z > 0 ? "-" : "+", zh = ~~(abs(z) / 60), zm = abs(z) % 60;
+    var z = d.getTimezoneOffset(), zs = z > 0 ? "-" : "+", zh = abs(z) / 60 | 0, zm = abs(z) % 60;
     return zs + d3_time_formatPad(zh, "0", 2) + d3_time_formatPad(zm, "0", 2);
   }
   function d3_time_parseLiteralPercent(date, string, i) {
     d3_time_percentRe.lastIndex = 0;
-    var n = d3_time_percentRe.exec(string.substring(i, i + 1));
+    var n = d3_time_percentRe.exec(string.slice(i, i + 1));
     return n ? i + n[0].length : -1;
   }
   function d3_time_formatMulti(formats) {
@@ -3540,6 +3558,15 @@
       d3_geo_centroidPointXYZ(x0, y0, z0);
     }
   }
+  function d3_geo_compose(a, b) {
+    function compose(x, y) {
+      return x = a(x, y), b(x[0], x[1]);
+    }
+    if (a.invert && b.invert) compose.invert = function(x, y) {
+      return x = b.invert(x, y), x && a.invert(x[0], x[1]);
+    };
+    return compose;
+  }
   function d3_true() {
     return true;
   }
@@ -3740,35 +3767,6 @@
   function d3_geo_clipSort(a, b) {
     return ((a = a.x)[0] < 0 ? a[1] - halfπ - ε : halfπ - a[1]) - ((b = b.x)[0] < 0 ? b[1] - halfπ - ε : halfπ - b[1]);
   }
-  function d3_geo_pointInPolygon(point, polygon) {
-    var meridian = point[0], parallel = point[1], meridianNormal = [ Math.sin(meridian), -Math.cos(meridian), 0 ], polarAngle = 0, winding = 0;
-    d3_geo_areaRingSum.reset();
-    for (var i = 0, n = polygon.length; i < n; ++i) {
-      var ring = polygon[i], m = ring.length;
-      if (!m) continue;
-      var point0 = ring[0], λ0 = point0[0], φ0 = point0[1] / 2 + π / 4, sinφ0 = Math.sin(φ0), cosφ0 = Math.cos(φ0), j = 1;
-      while (true) {
-        if (j === m) j = 0;
-        point = ring[j];
-        var λ = point[0], φ = point[1] / 2 + π / 4, sinφ = Math.sin(φ), cosφ = Math.cos(φ), dλ = λ - λ0, sdλ = dλ >= 0 ? 1 : -1, adλ = sdλ * dλ, antimeridian = adλ > π, k = sinφ0 * sinφ;
-        d3_geo_areaRingSum.add(Math.atan2(k * sdλ * Math.sin(adλ), cosφ0 * cosφ + k * Math.cos(adλ)));
-        polarAngle += antimeridian ? dλ + sdλ * τ : dλ;
-        if (antimeridian ^ λ0 >= meridian ^ λ >= meridian) {
-          var arc = d3_geo_cartesianCross(d3_geo_cartesian(point0), d3_geo_cartesian(point));
-          d3_geo_cartesianNormalize(arc);
-          var intersection = d3_geo_cartesianCross(meridianNormal, arc);
-          d3_geo_cartesianNormalize(intersection);
-          var φarc = (antimeridian ^ dλ >= 0 ? -1 : 1) * d3_asin(intersection[2]);
-          if (parallel > φarc || parallel === φarc && (arc[0] || arc[1])) {
-            winding += antimeridian ^ dλ >= 0 ? 1 : -1;
-          }
-        }
-        if (!j++) break;
-        λ0 = λ, sinφ0 = sinφ, cosφ0 = cosφ, point0 = point;
-      }
-    }
-    return (polarAngle < -ε || polarAngle < ε && d3_geo_areaRingSum < 0) ^ winding & 1;
-  }
   var d3_geo_clipAntimeridian = d3_geo_clip(d3_true, d3_geo_clipAntimeridianLine, d3_geo_clipAntimeridianInterpolate, [ -π, -π / 2 ]);
   function d3_geo_clipAntimeridianLine(listener) {
     var λ0 = NaN, φ0 = NaN, sλ0 = NaN, clean;
@@ -3835,6 +3833,35 @@
     } else {
       listener.point(to[0], to[1]);
     }
+  }
+  function d3_geo_pointInPolygon(point, polygon) {
+    var meridian = point[0], parallel = point[1], meridianNormal = [ Math.sin(meridian), -Math.cos(meridian), 0 ], polarAngle = 0, winding = 0;
+    d3_geo_areaRingSum.reset();
+    for (var i = 0, n = polygon.length; i < n; ++i) {
+      var ring = polygon[i], m = ring.length;
+      if (!m) continue;
+      var point0 = ring[0], λ0 = point0[0], φ0 = point0[1] / 2 + π / 4, sinφ0 = Math.sin(φ0), cosφ0 = Math.cos(φ0), j = 1;
+      while (true) {
+        if (j === m) j = 0;
+        point = ring[j];
+        var λ = point[0], φ = point[1] / 2 + π / 4, sinφ = Math.sin(φ), cosφ = Math.cos(φ), dλ = λ - λ0, sdλ = dλ >= 0 ? 1 : -1, adλ = sdλ * dλ, antimeridian = adλ > π, k = sinφ0 * sinφ;
+        d3_geo_areaRingSum.add(Math.atan2(k * sdλ * Math.sin(adλ), cosφ0 * cosφ + k * Math.cos(adλ)));
+        polarAngle += antimeridian ? dλ + sdλ * τ : dλ;
+        if (antimeridian ^ λ0 >= meridian ^ λ >= meridian) {
+          var arc = d3_geo_cartesianCross(d3_geo_cartesian(point0), d3_geo_cartesian(point));
+          d3_geo_cartesianNormalize(arc);
+          var intersection = d3_geo_cartesianCross(meridianNormal, arc);
+          d3_geo_cartesianNormalize(intersection);
+          var φarc = (antimeridian ^ dλ >= 0 ? -1 : 1) * d3_asin(intersection[2]);
+          if (parallel > φarc || parallel === φarc && (arc[0] || arc[1])) {
+            winding += antimeridian ^ dλ >= 0 ? 1 : -1;
+          }
+        }
+        if (!j++) break;
+        λ0 = λ, sinφ0 = sinφ, cosφ0 = cosφ, point0 = point;
+      }
+    }
+    return (polarAngle < -ε || polarAngle < ε && d3_geo_areaRingSum < 0) ^ winding & 1;
   }
   function d3_geo_clipCircle(radius) {
     var cr = Math.cos(radius), smallRadius = cr > 0, notHemisphere = abs(cr) > ε, interpolate = d3_geo_circleInterpolate(radius, 6 * d3_radians);
@@ -4138,15 +4165,6 @@
       return ca !== cb ? ca - cb : ca === 0 ? b[1] - a[1] : ca === 1 ? a[0] - b[0] : ca === 2 ? a[1] - b[1] : b[0] - a[0];
     }
   }
-  function d3_geo_compose(a, b) {
-    function compose(x, y) {
-      return x = a(x, y), b(x[0], x[1]);
-    }
-    if (a.invert && b.invert) compose.invert = function(x, y) {
-      return x = b.invert(x, y), x && a.invert(x[0], x[1]);
-    };
-    return compose;
-  }
   function d3_geo_conic(projectAt) {
     var φ0 = 0, φ1 = π / 3, m = d3_geo_projectionMutator(projectAt), p = m(φ0, φ1);
     p.parallels = function(_) {
@@ -4418,7 +4436,7 @@
       result: d3_noop
     };
     function point(x, y) {
-      context.moveTo(x, y);
+      context.moveTo(x + pointRadius, y);
       context.arc(x, y, pointRadius, 0, τ);
     }
     function pointLineStart(x, y) {
@@ -5104,13 +5122,13 @@
   (d3.geo.transverseMercator = function() {
     var projection = d3_geo_mercatorProjection(d3_geo_transverseMercator), center = projection.center, rotate = projection.rotate;
     projection.center = function(_) {
-      return _ ? center([ -_[1], _[0] ]) : (_ = center(), [ -_[1], _[0] ]);
+      return _ ? center([ -_[1], _[0] ]) : (_ = center(), [ _[1], -_[0] ]);
     };
     projection.rotate = function(_) {
       return _ ? rotate([ _[0], _[1], _.length > 2 ? _[2] + 90 : 90 ]) : (_ = rotate(), 
       [ _[0], _[1], _[2] - 90 ]);
     };
-    return projection.rotate([ 0, 0 ]);
+    return rotate([ 0, 0, 90 ]);
   }).raw = d3_geo_transverseMercator;
   d3.geom = {};
   function d3_geom_pointX(d) {
@@ -5926,11 +5944,11 @@
         }
       }
       function insertChild(n, d, x, y, x1, y1, x2, y2) {
-        var sx = (x1 + x2) * .5, sy = (y1 + y2) * .5, right = x >= sx, bottom = y >= sy, i = (bottom << 1) + right;
+        var xm = (x1 + x2) * .5, ym = (y1 + y2) * .5, right = x >= xm, below = y >= ym, i = below << 1 | right;
         n.leaf = false;
         n = n.nodes[i] || (n.nodes[i] = d3_geom_quadtreeNode());
-        if (right) x1 = sx; else x2 = sx;
-        if (bottom) y1 = sy; else y2 = sy;
+        if (right) x1 = xm; else x2 = xm;
+        if (below) y1 = ym; else y2 = ym;
         insert(n, d, x, y, x1, y1, x2, y2);
       }
       var root = d3_geom_quadtreeNode();
@@ -5939,6 +5957,9 @@
       };
       root.visit = function(f) {
         d3_geom_quadtreeVisit(f, root, x1_, y1_, x2_, y2_);
+      };
+      root.find = function(point) {
+        return d3_geom_quadtreeFind(root, point[0], point[1], x1_, y1_, x2_, y2_);
       };
       i = -1;
       if (x1 == null) {
@@ -5993,6 +6014,42 @@
       if (children[3]) d3_geom_quadtreeVisit(f, children[3], sx, sy, x2, y2);
     }
   }
+  function d3_geom_quadtreeFind(root, x, y, x0, y0, x3, y3) {
+    var minDistance2 = Infinity, closestPoint;
+    (function find(node, x1, y1, x2, y2) {
+      if (x1 > x3 || y1 > y3 || x2 < x0 || y2 < y0) return;
+      if (point = node.point) {
+        var point, dx = x - point[0], dy = y - point[1], distance2 = dx * dx + dy * dy;
+        if (distance2 < minDistance2) {
+          var distance = Math.sqrt(minDistance2 = distance2);
+          x0 = x - distance, y0 = y - distance;
+          x3 = x + distance, y3 = y + distance;
+          closestPoint = point;
+        }
+      }
+      var children = node.nodes, xm = (x1 + x2) * .5, ym = (y1 + y2) * .5, right = x >= xm, below = y >= ym;
+      for (var i = below << 1 | right, j = i + 4; i < j; ++i) {
+        if (node = children[i & 3]) switch (i & 3) {
+         case 0:
+          find(node, x1, y1, xm, ym);
+          break;
+
+         case 1:
+          find(node, xm, y1, x2, ym);
+          break;
+
+         case 2:
+          find(node, x1, ym, xm, y2);
+          break;
+
+         case 3:
+          find(node, xm, ym, x2, y2);
+          break;
+        }
+      }
+    })(root, x0, y0, x3, y3);
+    return closestPoint;
+  }
   d3.interpolateRgb = d3_interpolateRgb;
   function d3_interpolateRgb(a, b) {
     a = d3.rgb(a);
@@ -6024,9 +6081,9 @@
   }
   d3.interpolateNumber = d3_interpolateNumber;
   function d3_interpolateNumber(a, b) {
-    b -= a = +a;
+    a = +a, b = +b;
     return function(t) {
-      return a + b * t;
+      return a * (1 - t) + b * t;
     };
   }
   d3.interpolateString = d3_interpolateString;
@@ -6035,7 +6092,7 @@
     a = a + "", b = b + "";
     while ((am = d3_interpolate_numberA.exec(a)) && (bm = d3_interpolate_numberB.exec(b))) {
       if ((bs = bm.index) > bi) {
-        bs = b.substring(bi, bs);
+        bs = b.slice(bi, bs);
         if (s[i]) s[i] += bs; else s[++i] = bs;
       }
       if ((am = am[0]) === (bm = bm[0])) {
@@ -6050,7 +6107,7 @@
       bi = d3_interpolate_numberB.lastIndex;
     }
     if (bi < b.length) {
-      bs = b.substring(bi);
+      bs = b.slice(bi);
       if (s[i]) s[i] += bs; else s[++i] = bs;
     }
     return s.length < 2 ? q[0] ? (b = q[0].x, function(t) {
@@ -6071,7 +6128,7 @@
   }
   d3.interpolators = [ function(a, b) {
     var t = typeof b;
-    return (t === "string" ? d3_rgb_names.has(b) || /^(#|rgb\(|hsl\()/.test(b) ? d3_interpolateRgb : d3_interpolateString : b instanceof d3_Color ? d3_interpolateRgb : Array.isArray(b) ? d3_interpolateArray : t === "object" && isNaN(b) ? d3_interpolateObject : d3_interpolateNumber)(a, b);
+    return (t === "string" ? d3_rgb_names.has(b) || /^(#|rgb\(|hsl\()/.test(b) ? d3_interpolateRgb : d3_interpolateString : b instanceof d3_color ? d3_interpolateRgb : Array.isArray(b) ? d3_interpolateArray : t === "object" && isNaN(b) ? d3_interpolateObject : d3_interpolateNumber)(a, b);
   } ];
   d3.interpolateArray = d3_interpolateArray;
   function d3_interpolateArray(a, b) {
@@ -6120,7 +6177,7 @@
     }
   });
   d3.ease = function(name) {
-    var i = name.indexOf("-"), t = i >= 0 ? name.substring(0, i) : name, m = i >= 0 ? name.substring(i + 1) : "in";
+    var i = name.indexOf("-"), t = i >= 0 ? name.slice(0, i) : name, m = i >= 0 ? name.slice(i + 1) : "in";
     t = d3_ease.get(t) || d3_ease_default;
     m = d3_ease_mode.get(m) || d3_identity;
     return d3_ease_clamp(m(t.apply(null, d3_arraySlice.call(arguments, 1))));
@@ -6325,15 +6382,15 @@
     };
   }
   function d3_uninterpolateNumber(a, b) {
-    b = b - (a = +a) ? 1 / (b - a) : 0;
+    b = (b -= a = +a) || 1 / b;
     return function(x) {
-      return (x - a) * b;
+      return (x - a) / b;
     };
   }
   function d3_uninterpolateClamp(a, b) {
-    b = b - (a = +a) ? 1 / (b - a) : 0;
+    b = (b -= a = +a) || 1 / b;
     return function(x) {
-      return Math.max(0, Math.min(1, (x - a) * b));
+      return Math.max(0, Math.min(1, (x - a) / b));
     };
   }
   d3.layout = {};
@@ -6884,49 +6941,50 @@
     return d3_layout_hierarchyRebind(partition, hierarchy);
   };
   d3.layout.pie = function() {
-    var value = Number, sort = d3_layout_pieSortByValue, startAngle = 0, endAngle = τ;
+    var value = Number, sort = d3_layout_pieSortByValue, startAngle = 0, endAngle = τ, padAngle = 0;
     function pie(data) {
-      var values = data.map(function(d, i) {
+      var n = data.length, values = data.map(function(d, i) {
         return +value.call(pie, d, i);
-      });
-      var a = +(typeof startAngle === "function" ? startAngle.apply(this, arguments) : startAngle);
-      var k = ((typeof endAngle === "function" ? endAngle.apply(this, arguments) : endAngle) - a) / d3.sum(values);
-      var index = d3.range(data.length);
+      }), a = +(typeof startAngle === "function" ? startAngle.apply(this, arguments) : startAngle), da = (typeof endAngle === "function" ? endAngle.apply(this, arguments) : endAngle) - a, p = Math.min(Math.abs(da) / n, +(typeof padAngle === "function" ? padAngle.apply(this, arguments) : padAngle)), pa = p * (da < 0 ? -1 : 1), k = (da - n * pa) / d3.sum(values), index = d3.range(n), arcs = [], v;
       if (sort != null) index.sort(sort === d3_layout_pieSortByValue ? function(i, j) {
         return values[j] - values[i];
       } : function(i, j) {
         return sort(data[i], data[j]);
       });
-      var arcs = [];
       index.forEach(function(i) {
-        var d;
         arcs[i] = {
           data: data[i],
-          value: d = values[i],
+          value: v = values[i],
           startAngle: a,
-          endAngle: a += d * k
+          endAngle: a += v * k + pa,
+          padAngle: p
         };
       });
       return arcs;
     }
-    pie.value = function(x) {
+    pie.value = function(_) {
       if (!arguments.length) return value;
-      value = x;
+      value = _;
       return pie;
     };
-    pie.sort = function(x) {
+    pie.sort = function(_) {
       if (!arguments.length) return sort;
-      sort = x;
+      sort = _;
       return pie;
     };
-    pie.startAngle = function(x) {
+    pie.startAngle = function(_) {
       if (!arguments.length) return startAngle;
-      startAngle = x;
+      startAngle = _;
       return pie;
     };
-    pie.endAngle = function(x) {
+    pie.endAngle = function(_) {
       if (!arguments.length) return endAngle;
-      endAngle = x;
+      endAngle = _;
+      return pie;
+    };
+    pie.padAngle = function(_) {
+      if (!arguments.length) return padAngle;
+      padAngle = _;
       return pie;
     };
     return pie;
@@ -6935,6 +6993,7 @@
   d3.layout.stack = function() {
     var values = d3_identity, order = d3_layout_stackOrderDefault, offset = d3_layout_stackOffsetZero, out = d3_layout_stackOut, x = d3_layout_stackX, y = d3_layout_stackY;
     function stack(data, index) {
+      if (!(n = data.length)) return data;
       var series = data.map(function(d, i) {
         return values.call(stack, d, i);
       });
@@ -6947,7 +7006,7 @@
       series = d3.permute(series, orders);
       points = d3.permute(points, orders);
       var offsets = offset.call(stack, points, index);
-      var n = series.length, m = series[0].length, i, j, o;
+      var m = series[0].length, n, i, j, o;
       for (j = 0; j < m; ++j) {
         out.call(stack, series[0][j], o = offsets[j], points[0][j][1]);
         for (i = 1; i < n; ++i) {
@@ -8024,11 +8083,24 @@
     };
     scale.rangePoints = function(x, padding) {
       if (arguments.length < 2) padding = 0;
-      var start = x[0], stop = x[1], step = (stop - start) / (Math.max(1, domain.length - 1) + padding);
-      range = steps(domain.length < 2 ? (start + stop) / 2 : start + step * padding / 2, step);
+      var start = x[0], stop = x[1], step = domain.length < 2 ? (start = (start + stop) / 2, 
+      0) : (stop - start) / (domain.length - 1 + padding);
+      range = steps(start + step * padding / 2, step);
       rangeBand = 0;
       ranger = {
         t: "rangePoints",
+        a: arguments
+      };
+      return scale;
+    };
+    scale.rangeRoundPoints = function(x, padding) {
+      if (arguments.length < 2) padding = 0;
+      var start = x[0], stop = x[1], step = domain.length < 2 ? (start = stop = Math.round((start + stop) / 2), 
+      0) : (stop - start) / (domain.length - 1 + padding) | 0;
+      range = steps(start + Math.round(step * padding / 2 + (stop - start - (domain.length - 1 + padding) * step) / 2), step);
+      rangeBand = 0;
+      ranger = {
+        t: "rangeRoundPoints",
         a: arguments
       };
       return scale;
@@ -8049,8 +8121,8 @@
     scale.rangeRoundBands = function(x, padding, outerPadding) {
       if (arguments.length < 2) padding = 0;
       if (arguments.length < 3) outerPadding = padding;
-      var reverse = x[1] < x[0], start = x[reverse - 0], stop = x[1 - reverse], step = Math.floor((stop - start) / (domain.length - padding + 2 * outerPadding)), error = stop - start - (domain.length - padding) * step;
-      range = steps(start + Math.round(error / 2), step);
+      var reverse = x[1] < x[0], start = x[reverse - 0], stop = x[1 - reverse], step = Math.floor((stop - start) / (domain.length - padding + 2 * outerPadding));
+      range = steps(start + Math.round((stop - start - (domain.length - padding) * step) / 2), step);
       if (reverse) range.reverse();
       rangeBand = Math.round(step * (1 - padding));
       ranger = {
@@ -8102,7 +8174,7 @@
     }
     scale.domain = function(x) {
       if (!arguments.length) return domain;
-      domain = x.filter(d3_number).sort(d3_ascending);
+      domain = x.map(d3_number).filter(d3_numeric).sort(d3_ascending);
       return rescale();
     };
     scale.range = function(x) {
@@ -8207,12 +8279,86 @@
     return identity;
   }
   d3.svg = {};
+  function d3_zero() {
+    return 0;
+  }
   d3.svg.arc = function() {
-    var innerRadius = d3_svg_arcInnerRadius, outerRadius = d3_svg_arcOuterRadius, startAngle = d3_svg_arcStartAngle, endAngle = d3_svg_arcEndAngle;
+    var innerRadius = d3_svg_arcInnerRadius, outerRadius = d3_svg_arcOuterRadius, cornerRadius = d3_zero, padRadius = d3_svg_arcAuto, startAngle = d3_svg_arcStartAngle, endAngle = d3_svg_arcEndAngle, padAngle = d3_svg_arcPadAngle;
     function arc() {
-      var r0 = innerRadius.apply(this, arguments), r1 = outerRadius.apply(this, arguments), a0 = startAngle.apply(this, arguments) + d3_svg_arcOffset, a1 = endAngle.apply(this, arguments) + d3_svg_arcOffset, da = (a1 < a0 && (da = a0, 
-      a0 = a1, a1 = da), a1 - a0), df = da < π ? "0" : "1", c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
-      return da >= d3_svg_arcMax ? r0 ? "M0," + r1 + "A" + r1 + "," + r1 + " 0 1,1 0," + -r1 + "A" + r1 + "," + r1 + " 0 1,1 0," + r1 + "M0," + r0 + "A" + r0 + "," + r0 + " 0 1,0 0," + -r0 + "A" + r0 + "," + r0 + " 0 1,0 0," + r0 + "Z" : "M0," + r1 + "A" + r1 + "," + r1 + " 0 1,1 0," + -r1 + "A" + r1 + "," + r1 + " 0 1,1 0," + r1 + "Z" : r0 ? "M" + r1 * c0 + "," + r1 * s0 + "A" + r1 + "," + r1 + " 0 " + df + ",1 " + r1 * c1 + "," + r1 * s1 + "L" + r0 * c1 + "," + r0 * s1 + "A" + r0 + "," + r0 + " 0 " + df + ",0 " + r0 * c0 + "," + r0 * s0 + "Z" : "M" + r1 * c0 + "," + r1 * s0 + "A" + r1 + "," + r1 + " 0 " + df + ",1 " + r1 * c1 + "," + r1 * s1 + "L0,0" + "Z";
+      var r0 = Math.max(0, +innerRadius.apply(this, arguments)), r1 = Math.max(0, +outerRadius.apply(this, arguments)), a0 = startAngle.apply(this, arguments) - halfπ, a1 = endAngle.apply(this, arguments) - halfπ, da = Math.abs(a1 - a0), cw = a0 > a1 ? 0 : 1;
+      if (r1 < r0) rc = r1, r1 = r0, r0 = rc;
+      if (da >= τε) return circleSegment(r1, cw) + (r0 ? circleSegment(r0, 1 - cw) : "") + "Z";
+      var rc, cr, rp, ap, p0 = 0, p1 = 0, x0, y0, x1, y1, x2, y2, x3, y3, path = [];
+      if (ap = (+padAngle.apply(this, arguments) || 0) / 2) {
+        rp = padRadius === d3_svg_arcAuto ? Math.sqrt(r0 * r0 + r1 * r1) : +padRadius.apply(this, arguments);
+        if (!cw) p1 *= -1;
+        if (r1) p1 = d3_asin(rp / r1 * Math.sin(ap));
+        if (r0) p0 = d3_asin(rp / r0 * Math.sin(ap));
+      }
+      if (r1) {
+        x0 = r1 * Math.cos(a0 + p1);
+        y0 = r1 * Math.sin(a0 + p1);
+        x1 = r1 * Math.cos(a1 - p1);
+        y1 = r1 * Math.sin(a1 - p1);
+        var l1 = Math.abs(a1 - a0 - 2 * p1) <= π ? 0 : 1;
+        if (p1 && d3_svg_arcSweep(x0, y0, x1, y1) === cw ^ l1) {
+          var h1 = (a0 + a1) / 2;
+          x0 = r1 * Math.cos(h1);
+          y0 = r1 * Math.sin(h1);
+          x1 = y1 = null;
+        }
+      } else {
+        x0 = y0 = 0;
+      }
+      if (r0) {
+        x2 = r0 * Math.cos(a1 - p0);
+        y2 = r0 * Math.sin(a1 - p0);
+        x3 = r0 * Math.cos(a0 + p0);
+        y3 = r0 * Math.sin(a0 + p0);
+        var l0 = Math.abs(a0 - a1 + 2 * p0) <= π ? 0 : 1;
+        if (p0 && d3_svg_arcSweep(x2, y2, x3, y3) === 1 - cw ^ l0) {
+          var h0 = (a0 + a1) / 2;
+          x2 = r0 * Math.cos(h0);
+          y2 = r0 * Math.sin(h0);
+          x3 = y3 = null;
+        }
+      } else {
+        x2 = y2 = 0;
+      }
+      if ((rc = Math.min(Math.abs(r1 - r0) / 2, +cornerRadius.apply(this, arguments))) > .001) {
+        cr = r0 < r1 ^ cw ? 0 : 1;
+        var oc = x3 == null ? [ x2, y2 ] : x1 == null ? [ x0, y0 ] : d3_geom_polygonIntersect([ x0, y0 ], [ x3, y3 ], [ x1, y1 ], [ x2, y2 ]), ax = x0 - oc[0], ay = y0 - oc[1], bx = x1 - oc[0], by = y1 - oc[1], kc = 1 / Math.sin(Math.acos((ax * bx + ay * by) / (Math.sqrt(ax * ax + ay * ay) * Math.sqrt(bx * bx + by * by))) / 2), lc = Math.sqrt(oc[0] * oc[0] + oc[1] * oc[1]);
+        if (x1 != null) {
+          var rc1 = Math.min(rc, (r1 - lc) / (kc + 1)), t30 = d3_svg_arcCornerTangents(x3 == null ? [ x2, y2 ] : [ x3, y3 ], [ x0, y0 ], r1, rc1, cw), t12 = d3_svg_arcCornerTangents([ x1, y1 ], [ x2, y2 ], r1, rc1, cw);
+          if (rc === rc1) {
+            path.push("M", t30[0], "A", rc1, ",", rc1, " 0 0,", cr, " ", t30[1], "A", r1, ",", r1, " 0 ", 1 - cw ^ d3_svg_arcSweep(t30[1][0], t30[1][1], t12[1][0], t12[1][1]), ",", cw, " ", t12[1], "A", rc1, ",", rc1, " 0 0,", cr, " ", t12[0]);
+          } else {
+            path.push("M", t30[0], "A", rc1, ",", rc1, " 0 1,", cr, " ", t12[0]);
+          }
+        } else {
+          path.push("M", x0, ",", y0);
+        }
+        if (x3 != null) {
+          var rc0 = Math.min(rc, (r0 - lc) / (kc - 1)), t03 = d3_svg_arcCornerTangents([ x0, y0 ], [ x3, y3 ], r0, -rc0, cw), t21 = d3_svg_arcCornerTangents([ x2, y2 ], x1 == null ? [ x0, y0 ] : [ x1, y1 ], r0, -rc0, cw);
+          if (rc === rc0) {
+            path.push("L", t21[0], "A", rc0, ",", rc0, " 0 0,", cr, " ", t21[1], "A", r0, ",", r0, " 0 ", cw ^ d3_svg_arcSweep(t21[1][0], t21[1][1], t03[1][0], t03[1][1]), ",", 1 - cw, " ", t03[1], "A", rc0, ",", rc0, " 0 0,", cr, " ", t03[0]);
+          } else {
+            path.push("L", t21[0], "A", rc0, ",", rc0, " 0 0,", cr, " ", t03[0]);
+          }
+        } else {
+          path.push("L", x2, ",", y2);
+        }
+      } else {
+        path.push("M", x0, ",", y0);
+        if (x1 != null) path.push("A", r1, ",", r1, " 0 ", l1, ",", cw, " ", x1, ",", y1);
+        path.push("L", x2, ",", y2);
+        if (x3 != null) path.push("A", r0, ",", r0, " 0 ", l0, ",", 1 - cw, " ", x3, ",", y3);
+      }
+      path.push("Z");
+      return path.join("");
+    }
+    function circleSegment(r1, cw) {
+      return "M0," + r1 + "A" + r1 + "," + r1 + " 0 1," + cw + " 0," + -r1 + "A" + r1 + "," + r1 + " 0 1," + cw + " 0," + r1;
     }
     arc.innerRadius = function(v) {
       if (!arguments.length) return innerRadius;
@@ -8222,6 +8368,16 @@
     arc.outerRadius = function(v) {
       if (!arguments.length) return outerRadius;
       outerRadius = d3_functor(v);
+      return arc;
+    };
+    arc.cornerRadius = function(v) {
+      if (!arguments.length) return cornerRadius;
+      cornerRadius = d3_functor(v);
+      return arc;
+    };
+    arc.padRadius = function(v) {
+      if (!arguments.length) return padRadius;
+      padRadius = v == d3_svg_arcAuto ? d3_svg_arcAuto : d3_functor(v);
       return arc;
     };
     arc.startAngle = function(v) {
@@ -8234,13 +8390,18 @@
       endAngle = d3_functor(v);
       return arc;
     };
+    arc.padAngle = function(v) {
+      if (!arguments.length) return padAngle;
+      padAngle = d3_functor(v);
+      return arc;
+    };
     arc.centroid = function() {
-      var r = (innerRadius.apply(this, arguments) + outerRadius.apply(this, arguments)) / 2, a = (startAngle.apply(this, arguments) + endAngle.apply(this, arguments)) / 2 + d3_svg_arcOffset;
+      var r = (+innerRadius.apply(this, arguments) + +outerRadius.apply(this, arguments)) / 2, a = (+startAngle.apply(this, arguments) + +endAngle.apply(this, arguments)) / 2 - halfπ;
       return [ Math.cos(a) * r, Math.sin(a) * r ];
     };
     return arc;
   };
-  var d3_svg_arcOffset = -halfπ, d3_svg_arcMax = τ - ε;
+  var d3_svg_arcAuto = "auto";
   function d3_svg_arcInnerRadius(d) {
     return d.innerRadius;
   }
@@ -8252,6 +8413,17 @@
   }
   function d3_svg_arcEndAngle(d) {
     return d.endAngle;
+  }
+  function d3_svg_arcPadAngle(d) {
+    return d && d.padAngle;
+  }
+  function d3_svg_arcSweep(x0, y0, x1, y1) {
+    return (x0 - x1) * y0 - (y0 - y1) * x0 > 0 ? 0 : 1;
+  }
+  function d3_svg_arcCornerTangents(p0, p1, r1, rc, cw) {
+    var x01 = p0[0] - p1[0], y01 = p0[1] - p1[1], lo = (cw ? rc : -rc) / Math.sqrt(x01 * x01 + y01 * y01), ox = lo * y01, oy = -lo * x01, x1 = p0[0] + ox, y1 = p0[1] + oy, x2 = p1[0] + ox, y2 = p1[1] + oy, x3 = (x1 + x2) / 2, y3 = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1, d2 = dx * dx + dy * dy, r = r1 - rc, D = x1 * y2 - x2 * y1, d = (dy < 0 ? -1 : 1) * Math.sqrt(r * r * d2 - D * D), cx0 = (D * dy - dx * d) / d2, cy0 = (-D * dx - dy * d) / d2, cx1 = (D * dy + dx * d) / d2, cy1 = (-D * dx + dy * d) / d2, dx0 = cx0 - x3, dy0 = cy0 - y3, dx1 = cx1 - x3, dy1 = cy1 - y3;
+    if (dx0 * dx0 + dy0 * dy0 > dx1 * dx1 + dy1 * dy1) cx0 = cx1, cy0 = cy1;
+    return [ [ cx0 - ox, cy0 - oy ], [ cx0 * r1 / r, cy0 * r1 / r ] ];
   }
   function d3_svg_line(projection) {
     var x = d3_geom_pointX, y = d3_geom_pointY, defined = d3_true, interpolate = d3_svg_lineLinear, interpolateKey = interpolate.key, tension = .7;
@@ -8343,7 +8515,7 @@
     return path.join("");
   }
   function d3_svg_lineCardinalOpen(points, tension) {
-    return points.length < 4 ? d3_svg_lineLinear(points) : points[1] + d3_svg_lineHermite(points.slice(1, points.length - 1), d3_svg_lineCardinalTangents(points, tension));
+    return points.length < 4 ? d3_svg_lineLinear(points) : points[1] + d3_svg_lineHermite(points.slice(1, -1), d3_svg_lineCardinalTangents(points, tension));
   }
   function d3_svg_lineCardinalClosed(points, tension) {
     return points.length < 3 ? d3_svg_lineLinear(points) : points[0] + d3_svg_lineHermite((points.push(points[0]), 
@@ -8513,7 +8685,7 @@
     while (++i < n) {
       point = points[i];
       r = point[0];
-      a = point[1] + d3_svg_arcOffset;
+      a = point[1] - halfπ;
       point[0] = r * Math.cos(a);
       point[1] = r * Math.sin(a);
     }
@@ -8614,7 +8786,7 @@
       return "M" + s.p0 + arc(s.r, s.p1, s.a1 - s.a0) + (equals(s, t) ? curve(s.r, s.p1, s.r, s.p0) : curve(s.r, s.p1, t.r, t.p0) + arc(t.r, t.p1, t.a1 - t.a0) + curve(t.r, t.p1, s.r, s.p0)) + "Z";
     }
     function subgroup(self, f, d, i) {
-      var subgroup = f.call(self, d, i), r = radius.call(self, subgroup, i), a0 = startAngle.call(self, subgroup, i) + d3_svg_arcOffset, a1 = endAngle.call(self, subgroup, i) + d3_svg_arcOffset;
+      var subgroup = f.call(self, d, i), r = radius.call(self, subgroup, i), a0 = startAngle.call(self, subgroup, i) - halfπ, a1 = endAngle.call(self, subgroup, i) - halfπ;
       return {
         r: r,
         a0: a0,
@@ -8704,7 +8876,7 @@
   };
   function d3_svg_diagonalRadialProjection(projection) {
     return function() {
-      var d = projection.apply(this, arguments), r = d[0], a = d[1] + d3_svg_arcOffset;
+      var d = projection.apply(this, arguments), r = d[0], a = d[1] - halfπ;
       return [ r * Math.cos(a), r * Math.sin(a) ];
     };
   }
@@ -8760,8 +8932,43 @@
   });
   d3.svg.symbolTypes = d3_svg_symbols.keys();
   var d3_svg_symbolSqrt3 = Math.sqrt(3), d3_svg_symbolTan30 = Math.tan(30 * d3_radians);
-  function d3_transition(groups, id) {
+  d3_selectionPrototype.transition = function(name) {
+    var id = d3_transitionInheritId || ++d3_transitionId, ns = d3_transitionNamespace(name), subgroups = [], subgroup, node, transition = d3_transitionInherit || {
+      time: Date.now(),
+      ease: d3_ease_cubicInOut,
+      delay: 0,
+      duration: 250
+    };
+    for (var j = -1, m = this.length; ++j < m; ) {
+      subgroups.push(subgroup = []);
+      for (var group = this[j], i = -1, n = group.length; ++i < n; ) {
+        if (node = group[i]) d3_transitionNode(node, i, ns, id, transition);
+        subgroup.push(node);
+      }
+    }
+    return d3_transition(subgroups, ns, id);
+  };
+  d3_selectionPrototype.interrupt = function(name) {
+    return this.each(name == null ? d3_selection_interrupt : d3_selection_interruptNS(d3_transitionNamespace(name)));
+  };
+  var d3_selection_interrupt = d3_selection_interruptNS(d3_transitionNamespace());
+  function d3_selection_interruptNS(ns) {
+    return function() {
+      var lock, active;
+      if ((lock = this[ns]) && (active = lock[lock.active])) {
+        if (--lock.count) {
+          delete lock[lock.active];
+          lock.active += .5;
+        } else {
+          delete this[ns];
+        }
+        active.event && active.event.interrupt.call(this, this.__data__, active.index);
+      }
+    };
+  }
+  function d3_transition(groups, ns, id) {
     d3_subclass(groups, d3_transitionPrototype);
+    groups.namespace = ns;
     groups.id = id;
     return groups;
   }
@@ -8770,44 +8977,44 @@
   d3_transitionPrototype.empty = d3_selectionPrototype.empty;
   d3_transitionPrototype.node = d3_selectionPrototype.node;
   d3_transitionPrototype.size = d3_selectionPrototype.size;
-  d3.transition = function(selection) {
-    return arguments.length ? d3_transitionInheritId ? selection.transition() : selection : d3_selectionRoot.transition();
+  d3.transition = function(selection, name) {
+    return selection && selection.transition ? d3_transitionInheritId ? selection.transition(name) : selection : d3_selectionRoot.transition(selection);
   };
   d3.transition.prototype = d3_transitionPrototype;
   d3_transitionPrototype.select = function(selector) {
-    var id = this.id, subgroups = [], subgroup, subnode, node;
+    var id = this.id, ns = this.namespace, subgroups = [], subgroup, subnode, node;
     selector = d3_selection_selector(selector);
     for (var j = -1, m = this.length; ++j < m; ) {
       subgroups.push(subgroup = []);
       for (var group = this[j], i = -1, n = group.length; ++i < n; ) {
         if ((node = group[i]) && (subnode = selector.call(node, node.__data__, i, j))) {
           if ("__data__" in node) subnode.__data__ = node.__data__;
-          d3_transitionNode(subnode, i, id, node.__transition__[id]);
+          d3_transitionNode(subnode, i, ns, id, node[ns][id]);
           subgroup.push(subnode);
         } else {
           subgroup.push(null);
         }
       }
     }
-    return d3_transition(subgroups, id);
+    return d3_transition(subgroups, ns, id);
   };
   d3_transitionPrototype.selectAll = function(selector) {
-    var id = this.id, subgroups = [], subgroup, subnodes, node, subnode, transition;
+    var id = this.id, ns = this.namespace, subgroups = [], subgroup, subnodes, node, subnode, transition;
     selector = d3_selection_selectorAll(selector);
     for (var j = -1, m = this.length; ++j < m; ) {
       for (var group = this[j], i = -1, n = group.length; ++i < n; ) {
         if (node = group[i]) {
-          transition = node.__transition__[id];
+          transition = node[ns][id];
           subnodes = selector.call(node, node.__data__, i, j);
           subgroups.push(subgroup = []);
           for (var k = -1, o = subnodes.length; ++k < o; ) {
-            if (subnode = subnodes[k]) d3_transitionNode(subnode, k, id, transition);
+            if (subnode = subnodes[k]) d3_transitionNode(subnode, k, ns, id, transition);
             subgroup.push(subnode);
           }
         }
       }
     }
-    return d3_transition(subgroups, id);
+    return d3_transition(subgroups, ns, id);
   };
   d3_transitionPrototype.filter = function(filter) {
     var subgroups = [], subgroup, group, node;
@@ -8820,23 +9027,23 @@
         }
       }
     }
-    return d3_transition(subgroups, this.id);
+    return d3_transition(subgroups, this.namespace, this.id);
   };
   d3_transitionPrototype.tween = function(name, tween) {
-    var id = this.id;
-    if (arguments.length < 2) return this.node().__transition__[id].tween.get(name);
+    var id = this.id, ns = this.namespace;
+    if (arguments.length < 2) return this.node()[ns][id].tween.get(name);
     return d3_selection_each(this, tween == null ? function(node) {
-      node.__transition__[id].tween.remove(name);
+      node[ns][id].tween.remove(name);
     } : function(node) {
-      node.__transition__[id].tween.set(name, tween);
+      node[ns][id].tween.set(name, tween);
     });
   };
   function d3_transition_tween(groups, name, value, tween) {
-    var id = groups.id;
+    var id = groups.id, ns = groups.namespace;
     return d3_selection_each(groups, typeof value === "function" ? function(node, i, j) {
-      node.__transition__[id].tween.set(name, tween(value.call(node, node.__data__, i, j)));
+      node[ns][id].tween.set(name, tween(value.call(node, node.__data__, i, j)));
     } : (value = tween(value), function(node) {
-      node.__transition__[id].tween.set(name, value);
+      node[ns][id].tween.set(name, value);
     }));
   }
   d3_transitionPrototype.attr = function(nameNS, value) {
@@ -8928,73 +9135,84 @@
     };
   }
   d3_transitionPrototype.remove = function() {
+    var ns = this.namespace;
     return this.each("end.transition", function() {
       var p;
-      if (this.__transition__.count < 2 && (p = this.parentNode)) p.removeChild(this);
+      if (this[ns].count < 2 && (p = this.parentNode)) p.removeChild(this);
     });
   };
   d3_transitionPrototype.ease = function(value) {
-    var id = this.id;
-    if (arguments.length < 1) return this.node().__transition__[id].ease;
+    var id = this.id, ns = this.namespace;
+    if (arguments.length < 1) return this.node()[ns][id].ease;
     if (typeof value !== "function") value = d3.ease.apply(d3, arguments);
     return d3_selection_each(this, function(node) {
-      node.__transition__[id].ease = value;
+      node[ns][id].ease = value;
     });
   };
   d3_transitionPrototype.delay = function(value) {
-    var id = this.id;
-    if (arguments.length < 1) return this.node().__transition__[id].delay;
+    var id = this.id, ns = this.namespace;
+    if (arguments.length < 1) return this.node()[ns][id].delay;
     return d3_selection_each(this, typeof value === "function" ? function(node, i, j) {
-      node.__transition__[id].delay = +value.call(node, node.__data__, i, j);
+      node[ns][id].delay = +value.call(node, node.__data__, i, j);
     } : (value = +value, function(node) {
-      node.__transition__[id].delay = value;
+      node[ns][id].delay = value;
     }));
   };
   d3_transitionPrototype.duration = function(value) {
-    var id = this.id;
-    if (arguments.length < 1) return this.node().__transition__[id].duration;
+    var id = this.id, ns = this.namespace;
+    if (arguments.length < 1) return this.node()[ns][id].duration;
     return d3_selection_each(this, typeof value === "function" ? function(node, i, j) {
-      node.__transition__[id].duration = Math.max(1, value.call(node, node.__data__, i, j));
+      node[ns][id].duration = Math.max(1, value.call(node, node.__data__, i, j));
     } : (value = Math.max(1, value), function(node) {
-      node.__transition__[id].duration = value;
+      node[ns][id].duration = value;
     }));
   };
   d3_transitionPrototype.each = function(type, listener) {
-    var id = this.id;
+    var id = this.id, ns = this.namespace;
     if (arguments.length < 2) {
       var inherit = d3_transitionInherit, inheritId = d3_transitionInheritId;
-      d3_transitionInheritId = id;
-      d3_selection_each(this, function(node, i, j) {
-        d3_transitionInherit = node.__transition__[id];
-        type.call(node, node.__data__, i, j);
-      });
-      d3_transitionInherit = inherit;
-      d3_transitionInheritId = inheritId;
+      try {
+        d3_transitionInheritId = id;
+        d3_selection_each(this, function(node, i, j) {
+          d3_transitionInherit = node[ns][id];
+          type.call(node, node.__data__, i, j);
+        });
+      } finally {
+        d3_transitionInherit = inherit;
+        d3_transitionInheritId = inheritId;
+      }
     } else {
       d3_selection_each(this, function(node) {
-        var transition = node.__transition__[id];
-        (transition.event || (transition.event = d3.dispatch("start", "end"))).on(type, listener);
+        var transition = node[ns][id];
+        (transition.event || (transition.event = d3.dispatch("start", "end", "interrupt"))).on(type, listener);
       });
     }
     return this;
   };
   d3_transitionPrototype.transition = function() {
-    var id0 = this.id, id1 = ++d3_transitionId, subgroups = [], subgroup, group, node, transition;
+    var id0 = this.id, id1 = ++d3_transitionId, ns = this.namespace, subgroups = [], subgroup, group, node, transition;
     for (var j = 0, m = this.length; j < m; j++) {
       subgroups.push(subgroup = []);
       for (var group = this[j], i = 0, n = group.length; i < n; i++) {
         if (node = group[i]) {
-          transition = Object.create(node.__transition__[id0]);
-          transition.delay += transition.duration;
-          d3_transitionNode(node, i, id1, transition);
+          transition = node[ns][id0];
+          d3_transitionNode(node, i, ns, id1, {
+            time: transition.time,
+            ease: transition.ease,
+            delay: transition.delay + transition.duration,
+            duration: transition.duration
+          });
         }
         subgroup.push(node);
       }
     }
-    return d3_transition(subgroups, id1);
+    return d3_transition(subgroups, ns, id1);
   };
-  function d3_transitionNode(node, i, id, inherit) {
-    var lock = node.__transition__ || (node.__transition__ = {
+  function d3_transitionNamespace(name) {
+    return name == null ? "__transition__" : "__transition_" + name + "__";
+  }
+  function d3_transitionNode(node, i, ns, id, inherit) {
+    var lock = node[ns] || (node[ns] = {
       active: 0,
       count: 0
     }), transition = lock[id];
@@ -9003,43 +9221,53 @@
       transition = lock[id] = {
         tween: new d3_Map(),
         time: time,
-        ease: inherit.ease,
         delay: inherit.delay,
-        duration: inherit.duration
+        duration: inherit.duration,
+        ease: inherit.ease,
+        index: i
       };
+      inherit = null;
       ++lock.count;
       d3.timer(function(elapsed) {
-        var d = node.__data__, ease = transition.ease, delay = transition.delay, duration = transition.duration, timer = d3_timer_active, tweened = [];
+        var delay = transition.delay, duration, ease, timer = d3_timer_active, tweened = [];
         timer.t = delay + time;
         if (delay <= elapsed) return start(elapsed - delay);
         timer.c = start;
         function start(elapsed) {
           if (lock.active > id) return stop();
+          var active = lock[lock.active];
+          if (active) {
+            --lock.count;
+            delete lock[lock.active];
+            active.event && active.event.interrupt.call(node, node.__data__, active.index);
+          }
           lock.active = id;
-          transition.event && transition.event.start.call(node, d, i);
+          transition.event && transition.event.start.call(node, node.__data__, i);
           transition.tween.forEach(function(key, value) {
-            if (value = value.call(node, d, i)) {
+            if (value = value.call(node, node.__data__, i)) {
               tweened.push(value);
             }
           });
+          ease = transition.ease;
+          duration = transition.duration;
           d3.timer(function() {
             timer.c = tick(elapsed || 1) ? d3_true : tick;
             return 1;
           }, 0, time);
         }
         function tick(elapsed) {
-          if (lock.active !== id) return stop();
+          if (lock.active !== id) return 1;
           var t = elapsed / duration, e = ease(t), n = tweened.length;
           while (n > 0) {
             tweened[--n].call(node, e);
           }
           if (t >= 1) {
-            transition.event && transition.event.end.call(node, d, i);
+            transition.event && transition.event.end.call(node, node.__data__, i);
             return stop();
           }
         }
         function stop() {
-          if (--lock.count) delete lock[id]; else delete node.__transition__;
+          if (--lock.count) delete lock[id]; else delete node[ns];
           return 1;
         }
       }, 0, time);
@@ -9051,61 +9279,25 @@
       g.each(function() {
         var g = d3.select(this);
         var scale0 = this.__chart__ || scale, scale1 = this.__chart__ = scale.copy();
-        var ticks = tickValues == null ? scale1.ticks ? scale1.ticks.apply(scale1, tickArguments_) : scale1.domain() : tickValues, tickFormat = tickFormat_ == null ? scale1.tickFormat ? scale1.tickFormat.apply(scale1, tickArguments_) : d3_identity : tickFormat_, tick = g.selectAll(".tick").data(ticks, scale1), tickEnter = tick.enter().insert("g", ".domain").attr("class", "tick").style("opacity", ε), tickExit = d3.transition(tick.exit()).style("opacity", ε).remove(), tickUpdate = d3.transition(tick.order()).style("opacity", 1), tickTransform;
+        var ticks = tickValues == null ? scale1.ticks ? scale1.ticks.apply(scale1, tickArguments_) : scale1.domain() : tickValues, tickFormat = tickFormat_ == null ? scale1.tickFormat ? scale1.tickFormat.apply(scale1, tickArguments_) : d3_identity : tickFormat_, tick = g.selectAll(".tick").data(ticks, scale1), tickEnter = tick.enter().insert("g", ".domain").attr("class", "tick").style("opacity", ε), tickExit = d3.transition(tick.exit()).style("opacity", ε).remove(), tickUpdate = d3.transition(tick.order()).style("opacity", 1), tickSpacing = Math.max(innerTickSize, 0) + tickPadding, tickTransform;
         var range = d3_scaleRange(scale1), path = g.selectAll(".domain").data([ 0 ]), pathUpdate = (path.enter().append("path").attr("class", "domain"), 
         d3.transition(path));
         tickEnter.append("line");
         tickEnter.append("text");
-        var lineEnter = tickEnter.select("line"), lineUpdate = tickUpdate.select("line"), text = tick.select("text").text(tickFormat), textEnter = tickEnter.select("text"), textUpdate = tickUpdate.select("text");
-        switch (orient) {
-         case "bottom":
-          {
-            tickTransform = d3_svg_axisX;
-            lineEnter.attr("y2", innerTickSize);
-            textEnter.attr("y", Math.max(innerTickSize, 0) + tickPadding);
-            lineUpdate.attr("x2", 0).attr("y2", innerTickSize);
-            textUpdate.attr("x", 0).attr("y", Math.max(innerTickSize, 0) + tickPadding);
-            text.attr("dy", ".71em").style("text-anchor", "middle");
-            pathUpdate.attr("d", "M" + range[0] + "," + outerTickSize + "V0H" + range[1] + "V" + outerTickSize);
-            break;
-          }
-
-         case "top":
-          {
-            tickTransform = d3_svg_axisX;
-            lineEnter.attr("y2", -innerTickSize);
-            textEnter.attr("y", -(Math.max(innerTickSize, 0) + tickPadding));
-            lineUpdate.attr("x2", 0).attr("y2", -innerTickSize);
-            textUpdate.attr("x", 0).attr("y", -(Math.max(innerTickSize, 0) + tickPadding));
-            text.attr("dy", "0em").style("text-anchor", "middle");
-            pathUpdate.attr("d", "M" + range[0] + "," + -outerTickSize + "V0H" + range[1] + "V" + -outerTickSize);
-            break;
-          }
-
-         case "left":
-          {
-            tickTransform = d3_svg_axisY;
-            lineEnter.attr("x2", -innerTickSize);
-            textEnter.attr("x", -(Math.max(innerTickSize, 0) + tickPadding));
-            lineUpdate.attr("x2", -innerTickSize).attr("y2", 0);
-            textUpdate.attr("x", -(Math.max(innerTickSize, 0) + tickPadding)).attr("y", 0);
-            text.attr("dy", ".32em").style("text-anchor", "end");
-            pathUpdate.attr("d", "M" + -outerTickSize + "," + range[0] + "H0V" + range[1] + "H" + -outerTickSize);
-            break;
-          }
-
-         case "right":
-          {
-            tickTransform = d3_svg_axisY;
-            lineEnter.attr("x2", innerTickSize);
-            textEnter.attr("x", Math.max(innerTickSize, 0) + tickPadding);
-            lineUpdate.attr("x2", innerTickSize).attr("y2", 0);
-            textUpdate.attr("x", Math.max(innerTickSize, 0) + tickPadding).attr("y", 0);
-            text.attr("dy", ".32em").style("text-anchor", "start");
-            pathUpdate.attr("d", "M" + outerTickSize + "," + range[0] + "H0V" + range[1] + "H" + outerTickSize);
-            break;
-          }
+        var lineEnter = tickEnter.select("line"), lineUpdate = tickUpdate.select("line"), text = tick.select("text").text(tickFormat), textEnter = tickEnter.select("text"), textUpdate = tickUpdate.select("text"), sign = orient === "top" || orient === "left" ? -1 : 1, x1, x2, y1, y2;
+        if (orient === "bottom" || orient === "top") {
+          tickTransform = d3_svg_axisX, x1 = "x", y1 = "y", x2 = "x2", y2 = "y2";
+          text.attr("dy", sign < 0 ? "0em" : ".71em").style("text-anchor", "middle");
+          pathUpdate.attr("d", "M" + range[0] + "," + sign * outerTickSize + "V0H" + range[1] + "V" + sign * outerTickSize);
+        } else {
+          tickTransform = d3_svg_axisY, x1 = "y", y1 = "x", x2 = "y2", y2 = "x2";
+          text.attr("dy", ".32em").style("text-anchor", sign < 0 ? "end" : "start");
+          pathUpdate.attr("d", "M" + sign * outerTickSize + "," + range[0] + "H0V" + range[1] + "H" + sign * outerTickSize);
         }
+        lineEnter.attr(y2, sign * innerTickSize);
+        textEnter.attr(y1, sign * tickSpacing);
+        lineUpdate.attr(x2, 0).attr(y2, sign * innerTickSize);
+        textUpdate.attr(x1, 0).attr(y1, sign * tickSpacing);
         if (scale1.rangeBand) {
           var x = scale1, dx = x.rangeBand() / 2;
           scale0 = scale1 = function(d) {
@@ -9114,10 +9306,10 @@
         } else if (scale0.rangeBand) {
           scale0 = scale1;
         } else {
-          tickExit.call(tickTransform, scale1);
+          tickExit.call(tickTransform, scale1, scale0);
         }
-        tickEnter.call(tickTransform, scale0);
-        tickUpdate.call(tickTransform, scale1);
+        tickEnter.call(tickTransform, scale0, scale1);
+        tickUpdate.call(tickTransform, scale1, scale1);
       });
     }
     axis.scale = function(x) {
@@ -9178,14 +9370,16 @@
     bottom: 1,
     left: 1
   };
-  function d3_svg_axisX(selection, x) {
+  function d3_svg_axisX(selection, x0, x1) {
     selection.attr("transform", function(d) {
-      return "translate(" + x(d) + ",0)";
+      var v0 = x0(d);
+      return "translate(" + (isFinite(v0) ? v0 : x1(d)) + ",0)";
     });
   }
-  function d3_svg_axisY(selection, y) {
+  function d3_svg_axisY(selection, y0, y1) {
     selection.attr("transform", function(d) {
-      return "translate(0," + y(d) + ")";
+      var v0 = y0(d);
+      return "translate(0," + (isFinite(v0) ? v0 : y1(d)) + ")";
     });
   }
   d3.svg.brush = function() {
@@ -9652,43 +9846,1424 @@
   d3.xml = d3_xhrType(function(request) {
     return request.responseXML;
   });
-  if (typeof define === "function" && define.amd) {
-    define(d3);
-  } else if (typeof module === "object" && module.exports) {
-    module.exports = d3;
-  } else {
-    this.d3 = d3;
-  }
+  if (typeof define === "function" && define.amd) define(d3); else if (typeof module === "object" && module.exports) module.exports = d3;
+  this.d3 = d3;
 }();
-; browserify_shim__define__module__export__(typeof d3 != "undefined" ? d3 : window.d3);
+},{}],4:[function(require,module,exports){
+//     Underscore.js 1.7.0
+//     http://underscorejs.org
+//     (c) 2009-2014 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
+//     Underscore may be freely distributed under the MIT license.
 
-}).call(global, undefined, undefined, undefined, undefined, function defineExport(ex) { module.exports = ex; });
+(function() {
 
-}).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],3:[function(require,module,exports){
-var BarChart = require('./barchart');
+  // Baseline setup
+  // --------------
 
-var bc = new BarChart({
-  data: [[
-    {"name": "#1", "value": 12},
-    {"name": "#2", "value": 20},
-    {"name": "#3", "value": 30},
-    {"name": "#4", "value": 70},
-    {"name": "#5", "value": 63},
-    {"name": "#6", "value": 35}
-  ],[
-    {"name": "#1'", "value": 2},
-    {"name": "#2'", "value": 10},
-    {"name": "#3'", "value": 3},
-    {"name": "#4'", "value": 7},
-    {"name": "#5'", "value": 6},
-    {"name": "#6'", "value": 3}
-  ]],
-  bar_colors: ['#00AB8E', '#33CCDD'],
-  label_inside_colors: ['#FFF', '#333'],
-  auto_scale: true,
-  container: document.getElementById('chart-container')
-});
-bc.render();
+  // Establish the root object, `window` in the browser, or `exports` on the server.
+  var root = this;
 
-},{"./barchart":1}]},{},[3])
+  // Save the previous value of the `_` variable.
+  var previousUnderscore = root._;
+
+  // Save bytes in the minified (but not gzipped) version:
+  var ArrayProto = Array.prototype, ObjProto = Object.prototype, FuncProto = Function.prototype;
+
+  // Create quick reference variables for speed access to core prototypes.
+  var
+    push             = ArrayProto.push,
+    slice            = ArrayProto.slice,
+    concat           = ArrayProto.concat,
+    toString         = ObjProto.toString,
+    hasOwnProperty   = ObjProto.hasOwnProperty;
+
+  // All **ECMAScript 5** native function implementations that we hope to use
+  // are declared here.
+  var
+    nativeIsArray      = Array.isArray,
+    nativeKeys         = Object.keys,
+    nativeBind         = FuncProto.bind;
+
+  // Create a safe reference to the Underscore object for use below.
+  var _ = function(obj) {
+    if (obj instanceof _) return obj;
+    if (!(this instanceof _)) return new _(obj);
+    this._wrapped = obj;
+  };
+
+  // Export the Underscore object for **Node.js**, with
+  // backwards-compatibility for the old `require()` API. If we're in
+  // the browser, add `_` as a global object.
+  if (typeof exports !== 'undefined') {
+    if (typeof module !== 'undefined' && module.exports) {
+      exports = module.exports = _;
+    }
+    exports._ = _;
+  } else {
+    root._ = _;
+  }
+
+  // Current version.
+  _.VERSION = '1.7.0';
+
+  // Internal function that returns an efficient (for current engines) version
+  // of the passed-in callback, to be repeatedly applied in other Underscore
+  // functions.
+  var createCallback = function(func, context, argCount) {
+    if (context === void 0) return func;
+    switch (argCount == null ? 3 : argCount) {
+      case 1: return function(value) {
+        return func.call(context, value);
+      };
+      case 2: return function(value, other) {
+        return func.call(context, value, other);
+      };
+      case 3: return function(value, index, collection) {
+        return func.call(context, value, index, collection);
+      };
+      case 4: return function(accumulator, value, index, collection) {
+        return func.call(context, accumulator, value, index, collection);
+      };
+    }
+    return function() {
+      return func.apply(context, arguments);
+    };
+  };
+
+  // A mostly-internal function to generate callbacks that can be applied
+  // to each element in a collection, returning the desired result — either
+  // identity, an arbitrary callback, a property matcher, or a property accessor.
+  _.iteratee = function(value, context, argCount) {
+    if (value == null) return _.identity;
+    if (_.isFunction(value)) return createCallback(value, context, argCount);
+    if (_.isObject(value)) return _.matches(value);
+    return _.property(value);
+  };
+
+  // Collection Functions
+  // --------------------
+
+  // The cornerstone, an `each` implementation, aka `forEach`.
+  // Handles raw objects in addition to array-likes. Treats all
+  // sparse array-likes as if they were dense.
+  _.each = _.forEach = function(obj, iteratee, context) {
+    if (obj == null) return obj;
+    iteratee = createCallback(iteratee, context);
+    var i, length = obj.length;
+    if (length === +length) {
+      for (i = 0; i < length; i++) {
+        iteratee(obj[i], i, obj);
+      }
+    } else {
+      var keys = _.keys(obj);
+      for (i = 0, length = keys.length; i < length; i++) {
+        iteratee(obj[keys[i]], keys[i], obj);
+      }
+    }
+    return obj;
+  };
+
+  // Return the results of applying the iteratee to each element.
+  _.map = _.collect = function(obj, iteratee, context) {
+    if (obj == null) return [];
+    iteratee = _.iteratee(iteratee, context);
+    var keys = obj.length !== +obj.length && _.keys(obj),
+        length = (keys || obj).length,
+        results = Array(length),
+        currentKey;
+    for (var index = 0; index < length; index++) {
+      currentKey = keys ? keys[index] : index;
+      results[index] = iteratee(obj[currentKey], currentKey, obj);
+    }
+    return results;
+  };
+
+  var reduceError = 'Reduce of empty array with no initial value';
+
+  // **Reduce** builds up a single result from a list of values, aka `inject`,
+  // or `foldl`.
+  _.reduce = _.foldl = _.inject = function(obj, iteratee, memo, context) {
+    if (obj == null) obj = [];
+    iteratee = createCallback(iteratee, context, 4);
+    var keys = obj.length !== +obj.length && _.keys(obj),
+        length = (keys || obj).length,
+        index = 0, currentKey;
+    if (arguments.length < 3) {
+      if (!length) throw new TypeError(reduceError);
+      memo = obj[keys ? keys[index++] : index++];
+    }
+    for (; index < length; index++) {
+      currentKey = keys ? keys[index] : index;
+      memo = iteratee(memo, obj[currentKey], currentKey, obj);
+    }
+    return memo;
+  };
+
+  // The right-associative version of reduce, also known as `foldr`.
+  _.reduceRight = _.foldr = function(obj, iteratee, memo, context) {
+    if (obj == null) obj = [];
+    iteratee = createCallback(iteratee, context, 4);
+    var keys = obj.length !== + obj.length && _.keys(obj),
+        index = (keys || obj).length,
+        currentKey;
+    if (arguments.length < 3) {
+      if (!index) throw new TypeError(reduceError);
+      memo = obj[keys ? keys[--index] : --index];
+    }
+    while (index--) {
+      currentKey = keys ? keys[index] : index;
+      memo = iteratee(memo, obj[currentKey], currentKey, obj);
+    }
+    return memo;
+  };
+
+  // Return the first value which passes a truth test. Aliased as `detect`.
+  _.find = _.detect = function(obj, predicate, context) {
+    var result;
+    predicate = _.iteratee(predicate, context);
+    _.some(obj, function(value, index, list) {
+      if (predicate(value, index, list)) {
+        result = value;
+        return true;
+      }
+    });
+    return result;
+  };
+
+  // Return all the elements that pass a truth test.
+  // Aliased as `select`.
+  _.filter = _.select = function(obj, predicate, context) {
+    var results = [];
+    if (obj == null) return results;
+    predicate = _.iteratee(predicate, context);
+    _.each(obj, function(value, index, list) {
+      if (predicate(value, index, list)) results.push(value);
+    });
+    return results;
+  };
+
+  // Return all the elements for which a truth test fails.
+  _.reject = function(obj, predicate, context) {
+    return _.filter(obj, _.negate(_.iteratee(predicate)), context);
+  };
+
+  // Determine whether all of the elements match a truth test.
+  // Aliased as `all`.
+  _.every = _.all = function(obj, predicate, context) {
+    if (obj == null) return true;
+    predicate = _.iteratee(predicate, context);
+    var keys = obj.length !== +obj.length && _.keys(obj),
+        length = (keys || obj).length,
+        index, currentKey;
+    for (index = 0; index < length; index++) {
+      currentKey = keys ? keys[index] : index;
+      if (!predicate(obj[currentKey], currentKey, obj)) return false;
+    }
+    return true;
+  };
+
+  // Determine if at least one element in the object matches a truth test.
+  // Aliased as `any`.
+  _.some = _.any = function(obj, predicate, context) {
+    if (obj == null) return false;
+    predicate = _.iteratee(predicate, context);
+    var keys = obj.length !== +obj.length && _.keys(obj),
+        length = (keys || obj).length,
+        index, currentKey;
+    for (index = 0; index < length; index++) {
+      currentKey = keys ? keys[index] : index;
+      if (predicate(obj[currentKey], currentKey, obj)) return true;
+    }
+    return false;
+  };
+
+  // Determine if the array or object contains a given value (using `===`).
+  // Aliased as `include`.
+  _.contains = _.include = function(obj, target) {
+    if (obj == null) return false;
+    if (obj.length !== +obj.length) obj = _.values(obj);
+    return _.indexOf(obj, target) >= 0;
+  };
+
+  // Invoke a method (with arguments) on every item in a collection.
+  _.invoke = function(obj, method) {
+    var args = slice.call(arguments, 2);
+    var isFunc = _.isFunction(method);
+    return _.map(obj, function(value) {
+      return (isFunc ? method : value[method]).apply(value, args);
+    });
+  };
+
+  // Convenience version of a common use case of `map`: fetching a property.
+  _.pluck = function(obj, key) {
+    return _.map(obj, _.property(key));
+  };
+
+  // Convenience version of a common use case of `filter`: selecting only objects
+  // containing specific `key:value` pairs.
+  _.where = function(obj, attrs) {
+    return _.filter(obj, _.matches(attrs));
+  };
+
+  // Convenience version of a common use case of `find`: getting the first object
+  // containing specific `key:value` pairs.
+  _.findWhere = function(obj, attrs) {
+    return _.find(obj, _.matches(attrs));
+  };
+
+  // Return the maximum element (or element-based computation).
+  _.max = function(obj, iteratee, context) {
+    var result = -Infinity, lastComputed = -Infinity,
+        value, computed;
+    if (iteratee == null && obj != null) {
+      obj = obj.length === +obj.length ? obj : _.values(obj);
+      for (var i = 0, length = obj.length; i < length; i++) {
+        value = obj[i];
+        if (value > result) {
+          result = value;
+        }
+      }
+    } else {
+      iteratee = _.iteratee(iteratee, context);
+      _.each(obj, function(value, index, list) {
+        computed = iteratee(value, index, list);
+        if (computed > lastComputed || computed === -Infinity && result === -Infinity) {
+          result = value;
+          lastComputed = computed;
+        }
+      });
+    }
+    return result;
+  };
+
+  // Return the minimum element (or element-based computation).
+  _.min = function(obj, iteratee, context) {
+    var result = Infinity, lastComputed = Infinity,
+        value, computed;
+    if (iteratee == null && obj != null) {
+      obj = obj.length === +obj.length ? obj : _.values(obj);
+      for (var i = 0, length = obj.length; i < length; i++) {
+        value = obj[i];
+        if (value < result) {
+          result = value;
+        }
+      }
+    } else {
+      iteratee = _.iteratee(iteratee, context);
+      _.each(obj, function(value, index, list) {
+        computed = iteratee(value, index, list);
+        if (computed < lastComputed || computed === Infinity && result === Infinity) {
+          result = value;
+          lastComputed = computed;
+        }
+      });
+    }
+    return result;
+  };
+
+  // Shuffle a collection, using the modern version of the
+  // [Fisher-Yates shuffle](http://en.wikipedia.org/wiki/Fisher–Yates_shuffle).
+  _.shuffle = function(obj) {
+    var set = obj && obj.length === +obj.length ? obj : _.values(obj);
+    var length = set.length;
+    var shuffled = Array(length);
+    for (var index = 0, rand; index < length; index++) {
+      rand = _.random(0, index);
+      if (rand !== index) shuffled[index] = shuffled[rand];
+      shuffled[rand] = set[index];
+    }
+    return shuffled;
+  };
+
+  // Sample **n** random values from a collection.
+  // If **n** is not specified, returns a single random element.
+  // The internal `guard` argument allows it to work with `map`.
+  _.sample = function(obj, n, guard) {
+    if (n == null || guard) {
+      if (obj.length !== +obj.length) obj = _.values(obj);
+      return obj[_.random(obj.length - 1)];
+    }
+    return _.shuffle(obj).slice(0, Math.max(0, n));
+  };
+
+  // Sort the object's values by a criterion produced by an iteratee.
+  _.sortBy = function(obj, iteratee, context) {
+    iteratee = _.iteratee(iteratee, context);
+    return _.pluck(_.map(obj, function(value, index, list) {
+      return {
+        value: value,
+        index: index,
+        criteria: iteratee(value, index, list)
+      };
+    }).sort(function(left, right) {
+      var a = left.criteria;
+      var b = right.criteria;
+      if (a !== b) {
+        if (a > b || a === void 0) return 1;
+        if (a < b || b === void 0) return -1;
+      }
+      return left.index - right.index;
+    }), 'value');
+  };
+
+  // An internal function used for aggregate "group by" operations.
+  var group = function(behavior) {
+    return function(obj, iteratee, context) {
+      var result = {};
+      iteratee = _.iteratee(iteratee, context);
+      _.each(obj, function(value, index) {
+        var key = iteratee(value, index, obj);
+        behavior(result, value, key);
+      });
+      return result;
+    };
+  };
+
+  // Groups the object's values by a criterion. Pass either a string attribute
+  // to group by, or a function that returns the criterion.
+  _.groupBy = group(function(result, value, key) {
+    if (_.has(result, key)) result[key].push(value); else result[key] = [value];
+  });
+
+  // Indexes the object's values by a criterion, similar to `groupBy`, but for
+  // when you know that your index values will be unique.
+  _.indexBy = group(function(result, value, key) {
+    result[key] = value;
+  });
+
+  // Counts instances of an object that group by a certain criterion. Pass
+  // either a string attribute to count by, or a function that returns the
+  // criterion.
+  _.countBy = group(function(result, value, key) {
+    if (_.has(result, key)) result[key]++; else result[key] = 1;
+  });
+
+  // Use a comparator function to figure out the smallest index at which
+  // an object should be inserted so as to maintain order. Uses binary search.
+  _.sortedIndex = function(array, obj, iteratee, context) {
+    iteratee = _.iteratee(iteratee, context, 1);
+    var value = iteratee(obj);
+    var low = 0, high = array.length;
+    while (low < high) {
+      var mid = low + high >>> 1;
+      if (iteratee(array[mid]) < value) low = mid + 1; else high = mid;
+    }
+    return low;
+  };
+
+  // Safely create a real, live array from anything iterable.
+  _.toArray = function(obj) {
+    if (!obj) return [];
+    if (_.isArray(obj)) return slice.call(obj);
+    if (obj.length === +obj.length) return _.map(obj, _.identity);
+    return _.values(obj);
+  };
+
+  // Return the number of elements in an object.
+  _.size = function(obj) {
+    if (obj == null) return 0;
+    return obj.length === +obj.length ? obj.length : _.keys(obj).length;
+  };
+
+  // Split a collection into two arrays: one whose elements all satisfy the given
+  // predicate, and one whose elements all do not satisfy the predicate.
+  _.partition = function(obj, predicate, context) {
+    predicate = _.iteratee(predicate, context);
+    var pass = [], fail = [];
+    _.each(obj, function(value, key, obj) {
+      (predicate(value, key, obj) ? pass : fail).push(value);
+    });
+    return [pass, fail];
+  };
+
+  // Array Functions
+  // ---------------
+
+  // Get the first element of an array. Passing **n** will return the first N
+  // values in the array. Aliased as `head` and `take`. The **guard** check
+  // allows it to work with `_.map`.
+  _.first = _.head = _.take = function(array, n, guard) {
+    if (array == null) return void 0;
+    if (n == null || guard) return array[0];
+    if (n < 0) return [];
+    return slice.call(array, 0, n);
+  };
+
+  // Returns everything but the last entry of the array. Especially useful on
+  // the arguments object. Passing **n** will return all the values in
+  // the array, excluding the last N. The **guard** check allows it to work with
+  // `_.map`.
+  _.initial = function(array, n, guard) {
+    return slice.call(array, 0, Math.max(0, array.length - (n == null || guard ? 1 : n)));
+  };
+
+  // Get the last element of an array. Passing **n** will return the last N
+  // values in the array. The **guard** check allows it to work with `_.map`.
+  _.last = function(array, n, guard) {
+    if (array == null) return void 0;
+    if (n == null || guard) return array[array.length - 1];
+    return slice.call(array, Math.max(array.length - n, 0));
+  };
+
+  // Returns everything but the first entry of the array. Aliased as `tail` and `drop`.
+  // Especially useful on the arguments object. Passing an **n** will return
+  // the rest N values in the array. The **guard**
+  // check allows it to work with `_.map`.
+  _.rest = _.tail = _.drop = function(array, n, guard) {
+    return slice.call(array, n == null || guard ? 1 : n);
+  };
+
+  // Trim out all falsy values from an array.
+  _.compact = function(array) {
+    return _.filter(array, _.identity);
+  };
+
+  // Internal implementation of a recursive `flatten` function.
+  var flatten = function(input, shallow, strict, output) {
+    if (shallow && _.every(input, _.isArray)) {
+      return concat.apply(output, input);
+    }
+    for (var i = 0, length = input.length; i < length; i++) {
+      var value = input[i];
+      if (!_.isArray(value) && !_.isArguments(value)) {
+        if (!strict) output.push(value);
+      } else if (shallow) {
+        push.apply(output, value);
+      } else {
+        flatten(value, shallow, strict, output);
+      }
+    }
+    return output;
+  };
+
+  // Flatten out an array, either recursively (by default), or just one level.
+  _.flatten = function(array, shallow) {
+    return flatten(array, shallow, false, []);
+  };
+
+  // Return a version of the array that does not contain the specified value(s).
+  _.without = function(array) {
+    return _.difference(array, slice.call(arguments, 1));
+  };
+
+  // Produce a duplicate-free version of the array. If the array has already
+  // been sorted, you have the option of using a faster algorithm.
+  // Aliased as `unique`.
+  _.uniq = _.unique = function(array, isSorted, iteratee, context) {
+    if (array == null) return [];
+    if (!_.isBoolean(isSorted)) {
+      context = iteratee;
+      iteratee = isSorted;
+      isSorted = false;
+    }
+    if (iteratee != null) iteratee = _.iteratee(iteratee, context);
+    var result = [];
+    var seen = [];
+    for (var i = 0, length = array.length; i < length; i++) {
+      var value = array[i];
+      if (isSorted) {
+        if (!i || seen !== value) result.push(value);
+        seen = value;
+      } else if (iteratee) {
+        var computed = iteratee(value, i, array);
+        if (_.indexOf(seen, computed) < 0) {
+          seen.push(computed);
+          result.push(value);
+        }
+      } else if (_.indexOf(result, value) < 0) {
+        result.push(value);
+      }
+    }
+    return result;
+  };
+
+  // Produce an array that contains the union: each distinct element from all of
+  // the passed-in arrays.
+  _.union = function() {
+    return _.uniq(flatten(arguments, true, true, []));
+  };
+
+  // Produce an array that contains every item shared between all the
+  // passed-in arrays.
+  _.intersection = function(array) {
+    if (array == null) return [];
+    var result = [];
+    var argsLength = arguments.length;
+    for (var i = 0, length = array.length; i < length; i++) {
+      var item = array[i];
+      if (_.contains(result, item)) continue;
+      for (var j = 1; j < argsLength; j++) {
+        if (!_.contains(arguments[j], item)) break;
+      }
+      if (j === argsLength) result.push(item);
+    }
+    return result;
+  };
+
+  // Take the difference between one array and a number of other arrays.
+  // Only the elements present in just the first array will remain.
+  _.difference = function(array) {
+    var rest = flatten(slice.call(arguments, 1), true, true, []);
+    return _.filter(array, function(value){
+      return !_.contains(rest, value);
+    });
+  };
+
+  // Zip together multiple lists into a single array -- elements that share
+  // an index go together.
+  _.zip = function(array) {
+    if (array == null) return [];
+    var length = _.max(arguments, 'length').length;
+    var results = Array(length);
+    for (var i = 0; i < length; i++) {
+      results[i] = _.pluck(arguments, i);
+    }
+    return results;
+  };
+
+  // Converts lists into objects. Pass either a single array of `[key, value]`
+  // pairs, or two parallel arrays of the same length -- one of keys, and one of
+  // the corresponding values.
+  _.object = function(list, values) {
+    if (list == null) return {};
+    var result = {};
+    for (var i = 0, length = list.length; i < length; i++) {
+      if (values) {
+        result[list[i]] = values[i];
+      } else {
+        result[list[i][0]] = list[i][1];
+      }
+    }
+    return result;
+  };
+
+  // Return the position of the first occurrence of an item in an array,
+  // or -1 if the item is not included in the array.
+  // If the array is large and already in sort order, pass `true`
+  // for **isSorted** to use binary search.
+  _.indexOf = function(array, item, isSorted) {
+    if (array == null) return -1;
+    var i = 0, length = array.length;
+    if (isSorted) {
+      if (typeof isSorted == 'number') {
+        i = isSorted < 0 ? Math.max(0, length + isSorted) : isSorted;
+      } else {
+        i = _.sortedIndex(array, item);
+        return array[i] === item ? i : -1;
+      }
+    }
+    for (; i < length; i++) if (array[i] === item) return i;
+    return -1;
+  };
+
+  _.lastIndexOf = function(array, item, from) {
+    if (array == null) return -1;
+    var idx = array.length;
+    if (typeof from == 'number') {
+      idx = from < 0 ? idx + from + 1 : Math.min(idx, from + 1);
+    }
+    while (--idx >= 0) if (array[idx] === item) return idx;
+    return -1;
+  };
+
+  // Generate an integer Array containing an arithmetic progression. A port of
+  // the native Python `range()` function. See
+  // [the Python documentation](http://docs.python.org/library/functions.html#range).
+  _.range = function(start, stop, step) {
+    if (arguments.length <= 1) {
+      stop = start || 0;
+      start = 0;
+    }
+    step = step || 1;
+
+    var length = Math.max(Math.ceil((stop - start) / step), 0);
+    var range = Array(length);
+
+    for (var idx = 0; idx < length; idx++, start += step) {
+      range[idx] = start;
+    }
+
+    return range;
+  };
+
+  // Function (ahem) Functions
+  // ------------------
+
+  // Reusable constructor function for prototype setting.
+  var Ctor = function(){};
+
+  // Create a function bound to a given object (assigning `this`, and arguments,
+  // optionally). Delegates to **ECMAScript 5**'s native `Function.bind` if
+  // available.
+  _.bind = function(func, context) {
+    var args, bound;
+    if (nativeBind && func.bind === nativeBind) return nativeBind.apply(func, slice.call(arguments, 1));
+    if (!_.isFunction(func)) throw new TypeError('Bind must be called on a function');
+    args = slice.call(arguments, 2);
+    bound = function() {
+      if (!(this instanceof bound)) return func.apply(context, args.concat(slice.call(arguments)));
+      Ctor.prototype = func.prototype;
+      var self = new Ctor;
+      Ctor.prototype = null;
+      var result = func.apply(self, args.concat(slice.call(arguments)));
+      if (_.isObject(result)) return result;
+      return self;
+    };
+    return bound;
+  };
+
+  // Partially apply a function by creating a version that has had some of its
+  // arguments pre-filled, without changing its dynamic `this` context. _ acts
+  // as a placeholder, allowing any combination of arguments to be pre-filled.
+  _.partial = function(func) {
+    var boundArgs = slice.call(arguments, 1);
+    return function() {
+      var position = 0;
+      var args = boundArgs.slice();
+      for (var i = 0, length = args.length; i < length; i++) {
+        if (args[i] === _) args[i] = arguments[position++];
+      }
+      while (position < arguments.length) args.push(arguments[position++]);
+      return func.apply(this, args);
+    };
+  };
+
+  // Bind a number of an object's methods to that object. Remaining arguments
+  // are the method names to be bound. Useful for ensuring that all callbacks
+  // defined on an object belong to it.
+  _.bindAll = function(obj) {
+    var i, length = arguments.length, key;
+    if (length <= 1) throw new Error('bindAll must be passed function names');
+    for (i = 1; i < length; i++) {
+      key = arguments[i];
+      obj[key] = _.bind(obj[key], obj);
+    }
+    return obj;
+  };
+
+  // Memoize an expensive function by storing its results.
+  _.memoize = function(func, hasher) {
+    var memoize = function(key) {
+      var cache = memoize.cache;
+      var address = hasher ? hasher.apply(this, arguments) : key;
+      if (!_.has(cache, address)) cache[address] = func.apply(this, arguments);
+      return cache[address];
+    };
+    memoize.cache = {};
+    return memoize;
+  };
+
+  // Delays a function for the given number of milliseconds, and then calls
+  // it with the arguments supplied.
+  _.delay = function(func, wait) {
+    var args = slice.call(arguments, 2);
+    return setTimeout(function(){
+      return func.apply(null, args);
+    }, wait);
+  };
+
+  // Defers a function, scheduling it to run after the current call stack has
+  // cleared.
+  _.defer = function(func) {
+    return _.delay.apply(_, [func, 1].concat(slice.call(arguments, 1)));
+  };
+
+  // Returns a function, that, when invoked, will only be triggered at most once
+  // during a given window of time. Normally, the throttled function will run
+  // as much as it can, without ever going more than once per `wait` duration;
+  // but if you'd like to disable the execution on the leading edge, pass
+  // `{leading: false}`. To disable execution on the trailing edge, ditto.
+  _.throttle = function(func, wait, options) {
+    var context, args, result;
+    var timeout = null;
+    var previous = 0;
+    if (!options) options = {};
+    var later = function() {
+      previous = options.leading === false ? 0 : _.now();
+      timeout = null;
+      result = func.apply(context, args);
+      if (!timeout) context = args = null;
+    };
+    return function() {
+      var now = _.now();
+      if (!previous && options.leading === false) previous = now;
+      var remaining = wait - (now - previous);
+      context = this;
+      args = arguments;
+      if (remaining <= 0 || remaining > wait) {
+        clearTimeout(timeout);
+        timeout = null;
+        previous = now;
+        result = func.apply(context, args);
+        if (!timeout) context = args = null;
+      } else if (!timeout && options.trailing !== false) {
+        timeout = setTimeout(later, remaining);
+      }
+      return result;
+    };
+  };
+
+  // Returns a function, that, as long as it continues to be invoked, will not
+  // be triggered. The function will be called after it stops being called for
+  // N milliseconds. If `immediate` is passed, trigger the function on the
+  // leading edge, instead of the trailing.
+  _.debounce = function(func, wait, immediate) {
+    var timeout, args, context, timestamp, result;
+
+    var later = function() {
+      var last = _.now() - timestamp;
+
+      if (last < wait && last > 0) {
+        timeout = setTimeout(later, wait - last);
+      } else {
+        timeout = null;
+        if (!immediate) {
+          result = func.apply(context, args);
+          if (!timeout) context = args = null;
+        }
+      }
+    };
+
+    return function() {
+      context = this;
+      args = arguments;
+      timestamp = _.now();
+      var callNow = immediate && !timeout;
+      if (!timeout) timeout = setTimeout(later, wait);
+      if (callNow) {
+        result = func.apply(context, args);
+        context = args = null;
+      }
+
+      return result;
+    };
+  };
+
+  // Returns the first function passed as an argument to the second,
+  // allowing you to adjust arguments, run code before and after, and
+  // conditionally execute the original function.
+  _.wrap = function(func, wrapper) {
+    return _.partial(wrapper, func);
+  };
+
+  // Returns a negated version of the passed-in predicate.
+  _.negate = function(predicate) {
+    return function() {
+      return !predicate.apply(this, arguments);
+    };
+  };
+
+  // Returns a function that is the composition of a list of functions, each
+  // consuming the return value of the function that follows.
+  _.compose = function() {
+    var args = arguments;
+    var start = args.length - 1;
+    return function() {
+      var i = start;
+      var result = args[start].apply(this, arguments);
+      while (i--) result = args[i].call(this, result);
+      return result;
+    };
+  };
+
+  // Returns a function that will only be executed after being called N times.
+  _.after = function(times, func) {
+    return function() {
+      if (--times < 1) {
+        return func.apply(this, arguments);
+      }
+    };
+  };
+
+  // Returns a function that will only be executed before being called N times.
+  _.before = function(times, func) {
+    var memo;
+    return function() {
+      if (--times > 0) {
+        memo = func.apply(this, arguments);
+      } else {
+        func = null;
+      }
+      return memo;
+    };
+  };
+
+  // Returns a function that will be executed at most one time, no matter how
+  // often you call it. Useful for lazy initialization.
+  _.once = _.partial(_.before, 2);
+
+  // Object Functions
+  // ----------------
+
+  // Retrieve the names of an object's properties.
+  // Delegates to **ECMAScript 5**'s native `Object.keys`
+  _.keys = function(obj) {
+    if (!_.isObject(obj)) return [];
+    if (nativeKeys) return nativeKeys(obj);
+    var keys = [];
+    for (var key in obj) if (_.has(obj, key)) keys.push(key);
+    return keys;
+  };
+
+  // Retrieve the values of an object's properties.
+  _.values = function(obj) {
+    var keys = _.keys(obj);
+    var length = keys.length;
+    var values = Array(length);
+    for (var i = 0; i < length; i++) {
+      values[i] = obj[keys[i]];
+    }
+    return values;
+  };
+
+  // Convert an object into a list of `[key, value]` pairs.
+  _.pairs = function(obj) {
+    var keys = _.keys(obj);
+    var length = keys.length;
+    var pairs = Array(length);
+    for (var i = 0; i < length; i++) {
+      pairs[i] = [keys[i], obj[keys[i]]];
+    }
+    return pairs;
+  };
+
+  // Invert the keys and values of an object. The values must be serializable.
+  _.invert = function(obj) {
+    var result = {};
+    var keys = _.keys(obj);
+    for (var i = 0, length = keys.length; i < length; i++) {
+      result[obj[keys[i]]] = keys[i];
+    }
+    return result;
+  };
+
+  // Return a sorted list of the function names available on the object.
+  // Aliased as `methods`
+  _.functions = _.methods = function(obj) {
+    var names = [];
+    for (var key in obj) {
+      if (_.isFunction(obj[key])) names.push(key);
+    }
+    return names.sort();
+  };
+
+  // Extend a given object with all the properties in passed-in object(s).
+  _.extend = function(obj) {
+    if (!_.isObject(obj)) return obj;
+    var source, prop;
+    for (var i = 1, length = arguments.length; i < length; i++) {
+      source = arguments[i];
+      for (prop in source) {
+        if (hasOwnProperty.call(source, prop)) {
+            obj[prop] = source[prop];
+        }
+      }
+    }
+    return obj;
+  };
+
+  // Return a copy of the object only containing the whitelisted properties.
+  _.pick = function(obj, iteratee, context) {
+    var result = {}, key;
+    if (obj == null) return result;
+    if (_.isFunction(iteratee)) {
+      iteratee = createCallback(iteratee, context);
+      for (key in obj) {
+        var value = obj[key];
+        if (iteratee(value, key, obj)) result[key] = value;
+      }
+    } else {
+      var keys = concat.apply([], slice.call(arguments, 1));
+      obj = new Object(obj);
+      for (var i = 0, length = keys.length; i < length; i++) {
+        key = keys[i];
+        if (key in obj) result[key] = obj[key];
+      }
+    }
+    return result;
+  };
+
+   // Return a copy of the object without the blacklisted properties.
+  _.omit = function(obj, iteratee, context) {
+    if (_.isFunction(iteratee)) {
+      iteratee = _.negate(iteratee);
+    } else {
+      var keys = _.map(concat.apply([], slice.call(arguments, 1)), String);
+      iteratee = function(value, key) {
+        return !_.contains(keys, key);
+      };
+    }
+    return _.pick(obj, iteratee, context);
+  };
+
+  // Fill in a given object with default properties.
+  _.defaults = function(obj) {
+    if (!_.isObject(obj)) return obj;
+    for (var i = 1, length = arguments.length; i < length; i++) {
+      var source = arguments[i];
+      for (var prop in source) {
+        if (obj[prop] === void 0) obj[prop] = source[prop];
+      }
+    }
+    return obj;
+  };
+
+  // Create a (shallow-cloned) duplicate of an object.
+  _.clone = function(obj) {
+    if (!_.isObject(obj)) return obj;
+    return _.isArray(obj) ? obj.slice() : _.extend({}, obj);
+  };
+
+  // Invokes interceptor with the obj, and then returns obj.
+  // The primary purpose of this method is to "tap into" a method chain, in
+  // order to perform operations on intermediate results within the chain.
+  _.tap = function(obj, interceptor) {
+    interceptor(obj);
+    return obj;
+  };
+
+  // Internal recursive comparison function for `isEqual`.
+  var eq = function(a, b, aStack, bStack) {
+    // Identical objects are equal. `0 === -0`, but they aren't identical.
+    // See the [Harmony `egal` proposal](http://wiki.ecmascript.org/doku.php?id=harmony:egal).
+    if (a === b) return a !== 0 || 1 / a === 1 / b;
+    // A strict comparison is necessary because `null == undefined`.
+    if (a == null || b == null) return a === b;
+    // Unwrap any wrapped objects.
+    if (a instanceof _) a = a._wrapped;
+    if (b instanceof _) b = b._wrapped;
+    // Compare `[[Class]]` names.
+    var className = toString.call(a);
+    if (className !== toString.call(b)) return false;
+    switch (className) {
+      // Strings, numbers, regular expressions, dates, and booleans are compared by value.
+      case '[object RegExp]':
+      // RegExps are coerced to strings for comparison (Note: '' + /a/i === '/a/i')
+      case '[object String]':
+        // Primitives and their corresponding object wrappers are equivalent; thus, `"5"` is
+        // equivalent to `new String("5")`.
+        return '' + a === '' + b;
+      case '[object Number]':
+        // `NaN`s are equivalent, but non-reflexive.
+        // Object(NaN) is equivalent to NaN
+        if (+a !== +a) return +b !== +b;
+        // An `egal` comparison is performed for other numeric values.
+        return +a === 0 ? 1 / +a === 1 / b : +a === +b;
+      case '[object Date]':
+      case '[object Boolean]':
+        // Coerce dates and booleans to numeric primitive values. Dates are compared by their
+        // millisecond representations. Note that invalid dates with millisecond representations
+        // of `NaN` are not equivalent.
+        return +a === +b;
+    }
+    if (typeof a != 'object' || typeof b != 'object') return false;
+    // Assume equality for cyclic structures. The algorithm for detecting cyclic
+    // structures is adapted from ES 5.1 section 15.12.3, abstract operation `JO`.
+    var length = aStack.length;
+    while (length--) {
+      // Linear search. Performance is inversely proportional to the number of
+      // unique nested structures.
+      if (aStack[length] === a) return bStack[length] === b;
+    }
+    // Objects with different constructors are not equivalent, but `Object`s
+    // from different frames are.
+    var aCtor = a.constructor, bCtor = b.constructor;
+    if (
+      aCtor !== bCtor &&
+      // Handle Object.create(x) cases
+      'constructor' in a && 'constructor' in b &&
+      !(_.isFunction(aCtor) && aCtor instanceof aCtor &&
+        _.isFunction(bCtor) && bCtor instanceof bCtor)
+    ) {
+      return false;
+    }
+    // Add the first object to the stack of traversed objects.
+    aStack.push(a);
+    bStack.push(b);
+    var size, result;
+    // Recursively compare objects and arrays.
+    if (className === '[object Array]') {
+      // Compare array lengths to determine if a deep comparison is necessary.
+      size = a.length;
+      result = size === b.length;
+      if (result) {
+        // Deep compare the contents, ignoring non-numeric properties.
+        while (size--) {
+          if (!(result = eq(a[size], b[size], aStack, bStack))) break;
+        }
+      }
+    } else {
+      // Deep compare objects.
+      var keys = _.keys(a), key;
+      size = keys.length;
+      // Ensure that both objects contain the same number of properties before comparing deep equality.
+      result = _.keys(b).length === size;
+      if (result) {
+        while (size--) {
+          // Deep compare each member
+          key = keys[size];
+          if (!(result = _.has(b, key) && eq(a[key], b[key], aStack, bStack))) break;
+        }
+      }
+    }
+    // Remove the first object from the stack of traversed objects.
+    aStack.pop();
+    bStack.pop();
+    return result;
+  };
+
+  // Perform a deep comparison to check if two objects are equal.
+  _.isEqual = function(a, b) {
+    return eq(a, b, [], []);
+  };
+
+  // Is a given array, string, or object empty?
+  // An "empty" object has no enumerable own-properties.
+  _.isEmpty = function(obj) {
+    if (obj == null) return true;
+    if (_.isArray(obj) || _.isString(obj) || _.isArguments(obj)) return obj.length === 0;
+    for (var key in obj) if (_.has(obj, key)) return false;
+    return true;
+  };
+
+  // Is a given value a DOM element?
+  _.isElement = function(obj) {
+    return !!(obj && obj.nodeType === 1);
+  };
+
+  // Is a given value an array?
+  // Delegates to ECMA5's native Array.isArray
+  _.isArray = nativeIsArray || function(obj) {
+    return toString.call(obj) === '[object Array]';
+  };
+
+  // Is a given variable an object?
+  _.isObject = function(obj) {
+    var type = typeof obj;
+    return type === 'function' || type === 'object' && !!obj;
+  };
+
+  // Add some isType methods: isArguments, isFunction, isString, isNumber, isDate, isRegExp.
+  _.each(['Arguments', 'Function', 'String', 'Number', 'Date', 'RegExp'], function(name) {
+    _['is' + name] = function(obj) {
+      return toString.call(obj) === '[object ' + name + ']';
+    };
+  });
+
+  // Define a fallback version of the method in browsers (ahem, IE), where
+  // there isn't any inspectable "Arguments" type.
+  if (!_.isArguments(arguments)) {
+    _.isArguments = function(obj) {
+      return _.has(obj, 'callee');
+    };
+  }
+
+  // Optimize `isFunction` if appropriate. Work around an IE 11 bug.
+  if (typeof /./ !== 'function') {
+    _.isFunction = function(obj) {
+      return typeof obj == 'function' || false;
+    };
+  }
+
+  // Is a given object a finite number?
+  _.isFinite = function(obj) {
+    return isFinite(obj) && !isNaN(parseFloat(obj));
+  };
+
+  // Is the given value `NaN`? (NaN is the only number which does not equal itself).
+  _.isNaN = function(obj) {
+    return _.isNumber(obj) && obj !== +obj;
+  };
+
+  // Is a given value a boolean?
+  _.isBoolean = function(obj) {
+    return obj === true || obj === false || toString.call(obj) === '[object Boolean]';
+  };
+
+  // Is a given value equal to null?
+  _.isNull = function(obj) {
+    return obj === null;
+  };
+
+  // Is a given variable undefined?
+  _.isUndefined = function(obj) {
+    return obj === void 0;
+  };
+
+  // Shortcut function for checking if an object has a given property directly
+  // on itself (in other words, not on a prototype).
+  _.has = function(obj, key) {
+    return obj != null && hasOwnProperty.call(obj, key);
+  };
+
+  // Utility Functions
+  // -----------------
+
+  // Run Underscore.js in *noConflict* mode, returning the `_` variable to its
+  // previous owner. Returns a reference to the Underscore object.
+  _.noConflict = function() {
+    root._ = previousUnderscore;
+    return this;
+  };
+
+  // Keep the identity function around for default iteratees.
+  _.identity = function(value) {
+    return value;
+  };
+
+  _.constant = function(value) {
+    return function() {
+      return value;
+    };
+  };
+
+  _.noop = function(){};
+
+  _.property = function(key) {
+    return function(obj) {
+      return obj[key];
+    };
+  };
+
+  // Returns a predicate for checking whether an object has a given set of `key:value` pairs.
+  _.matches = function(attrs) {
+    var pairs = _.pairs(attrs), length = pairs.length;
+    return function(obj) {
+      if (obj == null) return !length;
+      obj = new Object(obj);
+      for (var i = 0; i < length; i++) {
+        var pair = pairs[i], key = pair[0];
+        if (pair[1] !== obj[key] || !(key in obj)) return false;
+      }
+      return true;
+    };
+  };
+
+  // Run a function **n** times.
+  _.times = function(n, iteratee, context) {
+    var accum = Array(Math.max(0, n));
+    iteratee = createCallback(iteratee, context, 1);
+    for (var i = 0; i < n; i++) accum[i] = iteratee(i);
+    return accum;
+  };
+
+  // Return a random integer between min and max (inclusive).
+  _.random = function(min, max) {
+    if (max == null) {
+      max = min;
+      min = 0;
+    }
+    return min + Math.floor(Math.random() * (max - min + 1));
+  };
+
+  // A (possibly faster) way to get the current timestamp as an integer.
+  _.now = Date.now || function() {
+    return new Date().getTime();
+  };
+
+   // List of HTML entities for escaping.
+  var escapeMap = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+    '`': '&#x60;'
+  };
+  var unescapeMap = _.invert(escapeMap);
+
+  // Functions for escaping and unescaping strings to/from HTML interpolation.
+  var createEscaper = function(map) {
+    var escaper = function(match) {
+      return map[match];
+    };
+    // Regexes for identifying a key that needs to be escaped
+    var source = '(?:' + _.keys(map).join('|') + ')';
+    var testRegexp = RegExp(source);
+    var replaceRegexp = RegExp(source, 'g');
+    return function(string) {
+      string = string == null ? '' : '' + string;
+      return testRegexp.test(string) ? string.replace(replaceRegexp, escaper) : string;
+    };
+  };
+  _.escape = createEscaper(escapeMap);
+  _.unescape = createEscaper(unescapeMap);
+
+  // If the value of the named `property` is a function then invoke it with the
+  // `object` as context; otherwise, return it.
+  _.result = function(object, property) {
+    if (object == null) return void 0;
+    var value = object[property];
+    return _.isFunction(value) ? object[property]() : value;
+  };
+
+  // Generate a unique integer id (unique within the entire client session).
+  // Useful for temporary DOM ids.
+  var idCounter = 0;
+  _.uniqueId = function(prefix) {
+    var id = ++idCounter + '';
+    return prefix ? prefix + id : id;
+  };
+
+  // By default, Underscore uses ERB-style template delimiters, change the
+  // following template settings to use alternative delimiters.
+  _.templateSettings = {
+    evaluate    : /<%([\s\S]+?)%>/g,
+    interpolate : /<%=([\s\S]+?)%>/g,
+    escape      : /<%-([\s\S]+?)%>/g
+  };
+
+  // When customizing `templateSettings`, if you don't want to define an
+  // interpolation, evaluation or escaping regex, we need one that is
+  // guaranteed not to match.
+  var noMatch = /(.)^/;
+
+  // Certain characters need to be escaped so that they can be put into a
+  // string literal.
+  var escapes = {
+    "'":      "'",
+    '\\':     '\\',
+    '\r':     'r',
+    '\n':     'n',
+    '\u2028': 'u2028',
+    '\u2029': 'u2029'
+  };
+
+  var escaper = /\\|'|\r|\n|\u2028|\u2029/g;
+
+  var escapeChar = function(match) {
+    return '\\' + escapes[match];
+  };
+
+  // JavaScript micro-templating, similar to John Resig's implementation.
+  // Underscore templating handles arbitrary delimiters, preserves whitespace,
+  // and correctly escapes quotes within interpolated code.
+  // NB: `oldSettings` only exists for backwards compatibility.
+  _.template = function(text, settings, oldSettings) {
+    if (!settings && oldSettings) settings = oldSettings;
+    settings = _.defaults({}, settings, _.templateSettings);
+
+    // Combine delimiters into one regular expression via alternation.
+    var matcher = RegExp([
+      (settings.escape || noMatch).source,
+      (settings.interpolate || noMatch).source,
+      (settings.evaluate || noMatch).source
+    ].join('|') + '|$', 'g');
+
+    // Compile the template source, escaping string literals appropriately.
+    var index = 0;
+    var source = "__p+='";
+    text.replace(matcher, function(match, escape, interpolate, evaluate, offset) {
+      source += text.slice(index, offset).replace(escaper, escapeChar);
+      index = offset + match.length;
+
+      if (escape) {
+        source += "'+\n((__t=(" + escape + "))==null?'':_.escape(__t))+\n'";
+      } else if (interpolate) {
+        source += "'+\n((__t=(" + interpolate + "))==null?'':__t)+\n'";
+      } else if (evaluate) {
+        source += "';\n" + evaluate + "\n__p+='";
+      }
+
+      // Adobe VMs need the match returned to produce the correct offest.
+      return match;
+    });
+    source += "';\n";
+
+    // If a variable is not specified, place data values in local scope.
+    if (!settings.variable) source = 'with(obj||{}){\n' + source + '}\n';
+
+    source = "var __t,__p='',__j=Array.prototype.join," +
+      "print=function(){__p+=__j.call(arguments,'');};\n" +
+      source + 'return __p;\n';
+
+    try {
+      var render = new Function(settings.variable || 'obj', '_', source);
+    } catch (e) {
+      e.source = source;
+      throw e;
+    }
+
+    var template = function(data) {
+      return render.call(this, data, _);
+    };
+
+    // Provide the compiled source as a convenience for precompilation.
+    var argument = settings.variable || 'obj';
+    template.source = 'function(' + argument + '){\n' + source + '}';
+
+    return template;
+  };
+
+  // Add a "chain" function. Start chaining a wrapped Underscore object.
+  _.chain = function(obj) {
+    var instance = _(obj);
+    instance._chain = true;
+    return instance;
+  };
+
+  // OOP
+  // ---------------
+  // If Underscore is called as a function, it returns a wrapped object that
+  // can be used OO-style. This wrapper holds altered versions of all the
+  // underscore functions. Wrapped objects may be chained.
+
+  // Helper function to continue chaining intermediate results.
+  var result = function(obj) {
+    return this._chain ? _(obj).chain() : obj;
+  };
+
+  // Add your own custom functions to the Underscore object.
+  _.mixin = function(obj) {
+    _.each(_.functions(obj), function(name) {
+      var func = _[name] = obj[name];
+      _.prototype[name] = function() {
+        var args = [this._wrapped];
+        push.apply(args, arguments);
+        return result.call(this, func.apply(_, args));
+      };
+    });
+  };
+
+  // Add all of the Underscore functions to the wrapper object.
+  _.mixin(_);
+
+  // Add all mutator Array functions to the wrapper.
+  _.each(['pop', 'push', 'reverse', 'shift', 'sort', 'splice', 'unshift'], function(name) {
+    var method = ArrayProto[name];
+    _.prototype[name] = function() {
+      var obj = this._wrapped;
+      method.apply(obj, arguments);
+      if ((name === 'shift' || name === 'splice') && obj.length === 0) delete obj[0];
+      return result.call(this, obj);
+    };
+  });
+
+  // Add all accessor Array functions to the wrapper.
+  _.each(['concat', 'join', 'slice'], function(name) {
+    var method = ArrayProto[name];
+    _.prototype[name] = function() {
+      return result.call(this, method.apply(this._wrapped, arguments));
+    };
+  });
+
+  // Extracts the result from a wrapped and chained object.
+  _.prototype.value = function() {
+    return this._wrapped;
+  };
+
+  // AMD registration happens at the end for compatibility with AMD loaders
+  // that may not enforce next-turn semantics on modules. Even though general
+  // practice for AMD registration is to be anonymous, underscore registers
+  // as a named module because, like jQuery, it is a base library that is
+  // popular enough to be bundled in a third party lib, but not be part of
+  // an AMD load request. Those cases could generate an error when an
+  // anonymous define() is called outside of a loader request.
+  if (typeof define === 'function' && define.amd) {
+    define('underscore', [], function() {
+      return _;
+    });
+  }
+}.call(this));
+
+},{}]},{},[2])
