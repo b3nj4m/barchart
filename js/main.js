@@ -1,4 +1,11 @@
 var BarChart = require('..');
+var _ = require('underscore');
+
+function randomItems(num) {
+  return _.map(_.range(num), function(val) {
+    return {name: '#' + val, value: _.random(99)};
+  });
+}
 
 var bc = new BarChart({
   bar_colors: ['#00AB8E', '#33CCDD'],
@@ -7,20 +14,10 @@ var bc = new BarChart({
   container: document.getElementById('chart-container')
 });
 
-bc.data([[
-  {"name": "#1", "value": 12},
-  {"name": "#2", "value": 20},
-  {"name": "#3", "value": 30},
-  {"name": "#4", "value": 70},
-  {"name": "#5", "value": 63},
-  {"name": "#6", "value": 35}
-],[
-  {"name": "#1'", "value": 2},
-  {"name": "#2'", "value": 10},
-  {"name": "#3'", "value": 3},
-  {"name": "#4'", "value": 7},
-  {"name": "#5'", "value": 6},
-  {"name": "#6'", "value": 3}
-]]);
+function data() {
+  bc.data([randomItems(6), randomItems(6)]);
+}
 
-bc.render();
+data();
+
+window.setInterval(data, 10000);

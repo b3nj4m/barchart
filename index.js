@@ -108,7 +108,7 @@
     BarChart.prototype.container = null;
     BarChart.prototype.has_rendered = false;
     BarChart.prototype.is_animated = true;
-    BarChart.prototype.animation_duration = 400;
+    BarChart.prototype.animation_duration = 600;
     BarChart.prototype.auto_scale = false;
     BarChart.prototype.height_scale_type = 'log';
     BarChart.prototype.bar_colors = '#00AB8E';
@@ -165,6 +165,7 @@
       };
   
       var baseline = this.height - this.chart_padding;
+      window.console.log(this.values, this.minimum, this.maximum);
       this.y_scale = function(val) {
         return baseline - chart.height_scale(val);
       };
@@ -179,12 +180,28 @@
     };
   
     BarChart.prototype.render = function() {
-      if (this.container === undefined) {
-        this.container = document.body;
+      if (!this.$container) {
+        if (this.container === undefined) {
+          this.container = document.body;
+        }
+
+        this.$container = d3.select(this.container).append('div').style('position', 'relative');
+        this.container_elem = this.$container[0][0];
       }
 
-      this.$container = d3.select(this.container).append('div').style('position', 'relative');
-      this.container_elem = this.$container[0][0];
+      this.$container
+        .style('height', this.height + 'px')
+        .style('width', this.width + 'px');
+
+      if (this.values === undefined || this.values.length == 0) {
+        this.$container.classed('no-data', true);
+        this.svg.remove();
+        delete this.svg;
+        return;
+      }
+      else {
+        this.$container.classed('no-data', false);
+      }
 
       this.compute_boundaries();
 
@@ -197,21 +214,6 @@
         this.svg = this.$container.append('svg')
           .attr('height', this.height)
           .attr('width', this.width);
-      }
-
-      if (!this.$container) {
-        this.$container
-          .style('height', this.height + 'px')
-          .style('width', this.width + 'px');
-      }
-
-      //TODO no-data class, clear existing elements
-      if (this.values === undefined || this.values.length == 0) {
-        this.$container.classed('no-data', true);
-        return;
-      }
-      else {
-        this.$container.classed('no-data', false);
       }
 
       if (d3.scale[this.height_scale_type] === undefined) {
@@ -253,7 +255,6 @@
           .style('width', this.bar_width + 'px')
           .style('height', px(this.height_scale))
         .append('div')
-          .data(this.values)
           .style('position', 'absolute')
           .style('color', byDatasetIndex(this.label_inside_colors, this.num_datasets))
           .style('bottom', '0')
@@ -276,18 +277,17 @@
   
       //if we have positive numbers less than 5 digits in length, animate them!
       if (this.minimum >= 1 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
-        labels_inside.selectAll('div')
-          .data(this.values)
-          .transition()
+        labels_inside.transition()
           .tween('label_inside_text', function(d) {
+            var start = this.textContent ? chart.height_scale(window.parseInt(this.textContent)) : chart.min_bar_size;
+
             //using height_scale to ensure that the values shown are consistent with the exact scale of the graph
-            //TODO this isn't timed correctly
             var tick_scale = d3.scale.linear()
               .domain([0, 1])
-              .range([chart.min_bar_size, chart.height_scale(d)]);
+              .range([start, chart.height_scale(d)]);
 
             return function(t) {
-              this.textContent = Math.round(chart.height_scale.invert(tick_scale(t)));
+              d3.select(this).select('div')[0][0].textContent = Math.round(chart.height_scale.invert(tick_scale(t)));
             };
           })
           .delay(this.animation_delay)
@@ -296,7 +296,6 @@
       //otherwise, pass them through the prettify_number routine
       else {
         labels_inside.selectAll('div')
-          .data(this.values)
           .html(this.prettify_number);
       }
   
