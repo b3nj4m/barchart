@@ -144,9 +144,17 @@
       this.bar_width = Math.floor((this.width - this.chart_padding * 2 - (this.values.length - 1) * this.bar_spacing - (this.dataset_size - 1) * this.group_spacing) / this.values.length);
       this.label_width = this.bar_width - this.label_padding * 2;
   
-      this.height_scale = d3.scale[this.height_scale_type]()
-        .domain([this.minimum, this.maximum])
+      var height_scale = d3.scale[this.height_scale_type]()
+        .domain([1, this.maximum - this.minimum + 1])
         .range([this.min_bar_size, this.max_bar_size]);
+
+      this.height_scale = function(val) {
+        //shift domain to [1, max - min + 1] so it plays-nice with log, etc.
+        return height_scale(val + 1 - chart.minimum);
+      };
+      this.height_scale.invert = function(val) {
+        return height_scale.invert(val) + chart.minimum - 1;
+      };
 
       //record-group scale which maps group number to x-coord of left-most bar in the group
       var group_x_scale = d3.scale.linear()
@@ -165,7 +173,6 @@
       };
   
       var baseline = this.height - this.chart_padding;
-      window.console.log(this.values, this.minimum, this.maximum);
       this.y_scale = function(val) {
         return baseline - chart.height_scale(val);
       };
@@ -276,10 +283,12 @@
         .style('top', px(this.label_top_y_scale));
   
       //if we have positive numbers less than 5 digits in length, animate them!
-      if (this.minimum >= 1 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
+      if (this.minimum >= 0 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
         labels_inside.transition()
           .tween('label_inside_text', function(d) {
-            var start = this.textContent ? chart.height_scale(window.parseInt(this.textContent)) : chart.min_bar_size;
+            var $this = d3.select(this);
+            var textDiv = $this.select('div')[0][0];
+            var start = window.parseInt($this.style('height')) || chart.min_bar_size;
 
             //using height_scale to ensure that the values shown are consistent with the exact scale of the graph
             var tick_scale = d3.scale.linear()
@@ -287,7 +296,7 @@
               .range([start, chart.height_scale(d)]);
 
             return function(t) {
-              d3.select(this).select('div')[0][0].textContent = Math.round(chart.height_scale.invert(tick_scale(t)));
+              textDiv.textContent = Math.round(chart.height_scale.invert(tick_scale(t)));
             };
           })
           .delay(this.animation_delay)
