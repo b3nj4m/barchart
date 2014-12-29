@@ -8,9 +8,9 @@ function randomItems(num) {
 }
 
 var bc = new BarChart({
-  bar_colors: ['#00AB8E', '#33CCDD'],
-  label_inside_colors: ['#FFF', '#333'],
-  auto_scale: true,
+  barColors: ['#00AB8E', '#33CCDD'],
+  labelInside_colors: ['#FFF', '#333'],
+  autoScale: true,
   container: document.getElementById('chart-container')
 });
 
