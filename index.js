@@ -1,7 +1,7 @@
 //TODO unit tests
 //TODO trend lines
 //TODO support overlay as well as side-by-side
-//TODO warnings about bad height_scale + domain choices
+//TODO warnings about bad heightScale + domain choices
 //TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
 //TODO allow user to artificially override the extrema
@@ -34,10 +34,10 @@
       }
     }
 
-    function byDatasetIndex(fn, num_datasets) {
+    function byDatasetIndex(fn, numDatasets) {
       var idx = byIndex(fn);
       return function(d, i) {
-        return idx(d, i % num_datasets);
+        return idx(d, i % numDatasets);
       };
     }
 
@@ -58,23 +58,23 @@
         data = [data];
       }
 
-      this.num_datasets = data.length;
-      this.dataset_size = d3.max(data, function(arr) { return arr.length; });
+      this.numDatasets = data.length;
+      this.datasetSize = d3.max(data, function(arr) { return arr.length; });
 
       data = _.flatten(_.zip.apply(_, data));
 
       var chart = this;
 
       this.values = _.map(data, function(point) {
-        return _.isNumber(point) ? point : point[chart.data_value_key];
+        return _.isNumber(point) ? point : point[chart.dataValueKey];
       });
 
-      this.labels_top = _.map(data, function(point) {
-        return _.isNumber(point) ? null : point[chart.label_top_key];
+      this.labelsTop = _.map(data, function(point) {
+        return _.isNumber(point) ? null : point[chart.labelTopKey];
       });
 
-      this.labels_inside = _.map(data, function(point) {
-        return _.isNumber(point) ? null : point[chart.label_inside_key];
+      this.labelsInside = _.map(data, function(point) {
+        return _.isNumber(point) ? null : point[chart.labelInsideKey];
       });
 
       this.ids = _.map(this.values, _.uniqueId);
@@ -103,84 +103,84 @@
       });
     };
   
-    BarChart.prototype.animation_delay = function(d, i) {
+    BarChart.prototype.animationDelay = function(d, i) {
       return i * 100;
     };
   
     BarChart.prototype.container = null;
-    BarChart.prototype.has_rendered = false;
-    BarChart.prototype.is_animated = true;
-    BarChart.prototype.animation_duration = 600;
-    BarChart.prototype.auto_scale = false;
-    BarChart.prototype.height_scale_type = 'log';
-    BarChart.prototype.bar_colors = '#00AB8E';
-    BarChart.prototype.bar_spacing = 2;
-    BarChart.prototype.group_spacing = 8;
-    BarChart.prototype.chart_padding = 0;
+    BarChart.prototype.hasRendered = false;
+    BarChart.prototype.isAnimated = true;
+    BarChart.prototype.animationDuration = 600;
+    BarChart.prototype.autoScale = false;
+    BarChart.prototype.heightScaleType = 'log';
+    BarChart.prototype.barColors = '#00AB8E';
+    BarChart.prototype.barSpacing = 2;
+    BarChart.prototype.groupSpacing = 8;
+    BarChart.prototype.chartPadding = 0;
     BarChart.prototype.numDatasets = 0;
-    BarChart.prototype.data_value_key = 'value';
+    BarChart.prototype.dataValueKey = 'value';
     BarChart.prototype.height = 300;
     BarChart.prototype.width = 700;
-    BarChart.prototype.label_top_colors = '#003D4C';
-    BarChart.prototype.label_inside_colors = '#FFF';
-    BarChart.prototype.label_inside_key = 'value';
-    BarChart.prototype.label_padding = 3;
-    BarChart.prototype.label_size = 16;
-    BarChart.prototype.label_top_key = 'name';
+    BarChart.prototype.labelTopColors = '#003D4C';
+    BarChart.prototype.labelInsideColors = '#FFF';
+    BarChart.prototype.labelInsideKey = 'value';
+    BarChart.prototype.labelPadding = 3;
+    BarChart.prototype.labelSize = 16;
+    BarChart.prototype.labelTopKey = 'name';
   
     //TODO break this down into separate functions so you can override individual calculations
-    BarChart.prototype.compute_boundaries = function() {
+    BarChart.prototype.computeBoundaries = function() {
       var chart = this;
 
-      if (this.auto_scale) {
-        this.width = this.container_elem.scrollWidth || this.width;
+      if (this.autoScale) {
+        this.width = this.containerElem.scrollWidth || this.width;
       }
   
       if (this.values.length === 0) {
         return;
       }
 
-      this.min_bar_size = this.label_size + this.label_padding * 2;
-      this.max_bar_size = Math.max(this.min_bar_size, this.height - this.chart_padding - this.label_size - this.label_padding * 2);
+      this.minBarSize = this.labelSize + this.labelPadding * 2;
+      this.maxBarSize = Math.max(this.minBarSize, this.height - this.chartPadding - this.labelSize - this.labelPadding * 2);
 
-      this.bar_width = Math.floor((this.width - this.chart_padding * 2 - (this.values.length - 1) * this.bar_spacing - (this.dataset_size - 1) * this.group_spacing) / this.values.length);
-      this.label_width = this.bar_width - this.label_padding * 2;
+      this.barWidth = Math.floor((this.width - this.chartPadding * 2 - (this.values.length - 1) * this.barSpacing - (this.datasetSize - 1) * this.groupSpacing) / this.values.length);
+      this.labelWidth = this.barWidth - this.labelPadding * 2;
   
-      var height_scale = d3.scale[this.height_scale_type]()
+      var heightScale = d3.scale[this.heightScaleType]()
         .domain([1, this.maximum - this.minimum + 1])
-        .range([this.min_bar_size, this.max_bar_size]);
+        .range([this.minBarSize, this.maxBarSize]);
 
-      this.height_scale = function(val) {
+      this.heightScale = function(val) {
         //shift domain to [1, max - min + 1] so it plays-nice with log, etc.
-        return height_scale(val + 1 - chart.minimum);
+        return heightScale(val + 1 - chart.minimum);
       };
-      this.height_scale.invert = function(val) {
-        return height_scale.invert(val) + chart.minimum - 1;
+      this.heightScale.invert = function(val) {
+        return heightScale.invert(val) + chart.minimum - 1;
       };
 
       //record-group scale which maps group number to x-coord of left-most bar in the group
-      var group_x_scale = d3.scale.linear()
-        .domain([0, this.dataset_size - 1])
-        .range([this.chart_padding, this.width - this.chart_padding - this.bar_width * this.num_datasets - (this.num_datasets - 1) * this.bar_spacing]);
+      var groupXScale = d3.scale.linear()
+        .domain([0, this.datasetSize - 1])
+        .range([this.chartPadding, this.width - this.chartPadding - this.barWidth * this.numDatasets - (this.numDatasets - 1) * this.barSpacing]);
 
       //record scale which maps idx within record-group to offset inside record group
-      var bar_x_scale = d3.scale.linear()
-        .domain([0, this.num_datasets - 1])
-        .range([0, (this.num_datasets - 1) * (this.bar_width + this.bar_spacing)]);
+      var barXScale = d3.scale.linear()
+        .domain([0, this.numDatasets - 1])
+        .range([0, (this.numDatasets - 1) * (this.barWidth + this.barSpacing)]);
 
-      this.x_scale = function(idx) {
-        var group_num = Math.floor(idx / chart.num_datasets);
-        var dataset_num = idx % chart.num_datasets;
-        return group_x_scale(group_num) + bar_x_scale(dataset_num);
+      this.xScale = function(idx) {
+        var groupNum = Math.floor(idx / chart.numDatasets);
+        var datasetNum = idx % chart.numDatasets;
+        return groupXScale(groupNum) + barXScale(datasetNum);
       };
   
-      var baseline = this.height - this.chart_padding;
-      this.y_scale = function(val) {
-        return baseline - chart.height_scale(val);
+      var baseline = this.height - this.chartPadding;
+      this.yScale = function(val) {
+        return baseline - chart.heightScale(val);
       };
   
-      this.label_top_y_scale = function(val) {
-        var y = chart.y_scale(val) - chart.label_padding;
+      this.labelTopYScale = function(val) {
+        var y = chart.yScale(val) - chart.labelPadding;
         if (this.scrollHeight) {
           y = y - this.scrollHeight;
         }
@@ -195,7 +195,7 @@
         }
 
         this.$container = d3.select(this.container).append('div').style('position', 'relative');
-        this.container_elem = this.$container[0][0];
+        this.containerElem = this.$container[0][0];
       }
 
       this.$container
@@ -212,11 +212,11 @@
         this.$container.classed('no-data', false);
       }
 
-      this.compute_boundaries();
+      this.computeBoundaries();
 
-      if (!this.is_animated) {
-        this.animation_delay = 0;
-        this.animation_duration = 0;
+      if (!this.isAnimated) {
+        this.animationDelay = 0;
+        this.animationDuration = 0;
       }
 
       if (!this.svg) {
@@ -225,36 +225,36 @@
           .attr('width', this.width);
       }
 
-      if (d3.scale[this.height_scale_type] === undefined) {
-        console.warn('Invalid height_scale_type "' + this.height_scale_type + '", using "' + BarChart.prototype.height_scale_type + '" instead.');
-        this.height_scale_type = BarChart.prototype.height_scale_type;
+      if (d3.scale[this.heightScaleType] === undefined) {
+        console.warn('Invalid heightScaleType "' + this.heightScaleType + '", using "' + BarChart.prototype.heightScaleType + '" instead.');
+        this.heightScaleType = BarChart.prototype.heightScaleType;
       }
   
       var bars = this.svg.selectAll('rect').data(this.values);
-      var labels_top = this.$container.selectAll('.label-top').data(this.values);
-      var labels_inside = this.$container.selectAll('.label-inside').data(this.values);
+      var labelsTop = this.$container.selectAll('.label-top').data(this.values);
+      var labelsInside = this.$container.selectAll('.label-inside').data(this.values);
   
       var chart = this;
 
       Q.all([
         this.addNewBars(bars),
-        this.addNewLabelsTop(labels_top),
-        this.addNewLabelsInside(labels_inside)
+        this.addNewLabelsTop(labelsTop),
+        this.addNewLabelsInside(labelsInside)
       ]).then(function() {
         return Q.all([
           chart.removeOldBars(bars),
-          chart.removeOldLabelsTop(labels_top),
-          chart.removeOldLabelsInside(labels_inside)
+          chart.removeOldLabelsTop(labelsTop),
+          chart.removeOldLabelsInside(labelsInside)
         ]);
       }).then(function() {
         return Q.all([
           chart.transitionBars(bars),
-          chart.transitionLabelsTop(labels_top),
-          chart.transitionLabelsInside(labels_inside)
+          chart.transitionLabelsTop(labelsTop),
+          chart.transitionLabelsInside(labelsInside)
         ]);
       });
      
-      this.has_rendered = true;
+      this.hasRendered = true;
     };
 
     BarChart.prototype.addNewBars = function(bars) {
@@ -262,12 +262,12 @@
 
       if (!enter.empty()) {
         enter = enter.append('rect')
-          .attr('x', byIndex(this.x_scale))
-          .attr('y', this.y_scale(this.minimum))
-          .attr('width', this.has_rendered ? '0' : this.bar_width)
-          .attr('height', this.height_scale(this.minimum))
-          .style('opacity', this.has_rendered ? '0' : '1')
-          .style('fill', byDatasetIndex(this.bar_colors, this.num_datasets));
+          .attr('x', byIndex(this.xScale))
+          .attr('y', this.yScale(this.minimum))
+          .attr('width', this.hasRendered ? '0' : this.barWidth)
+          .attr('height', this.heightScale(this.minimum))
+          .style('opacity', this.hasRendered ? '0' : '1')
+          .style('fill', byDatasetIndex(this.barColors, this.numDatasets));
       }
 
       return Q(enter);
@@ -279,14 +279,14 @@
       if (!enter.empty()) {
         enter = enter.append('div')
           .classed('label-top', true)
-          .text(byIndex(this.labels_top))
+          .text(byIndex(this.labelsTop))
           .style('position', 'absolute')
-          .style('color', byDatasetIndex(this.label_top_colors, this.num_datasets))
-          .style('top', this.label_top_y_scale(this.minimum, this) + 'px')
-          .style('left', px(byIndex(this.x_scale)))
-          .style('width', this.has_rendered ? '0' : this.bar_width + 'px')
-          .style('opacity', this.has_rendered ? '0' : '1')
-          .style('line-height', this.label_size + 'px')
+          .style('color', byDatasetIndex(this.labelTopColors, this.numDatasets))
+          .style('top', this.labelTopYScale(this.minimum, this) + 'px')
+          .style('left', px(byIndex(this.xScale)))
+          .style('width', this.hasRendered ? '0' : this.barWidth + 'px')
+          .style('opacity', this.hasRendered ? '0' : '1')
+          .style('line-height', this.labelSize + 'px')
           .style('text-align', 'center');
       }
 
@@ -301,14 +301,14 @@
           .classed('label-inside', true)
           .style('position', 'absolute')
           .style('overflow', 'hidden')
-          .style('top', px(this.y_scale))
-          .style('left', px(byIndex(this.x_scale)))
-          .style('width', this.has_rendered ? '0' : this.bar_width + 'px')
-          .style('opacity', this.has_rendered ? '0' : '1')
-          .style('height', px(this.height_scale))
+          .style('top', px(this.yScale))
+          .style('left', px(byIndex(this.xScale)))
+          .style('width', this.hasRendered ? '0' : this.barWidth + 'px')
+          .style('opacity', this.hasRendered ? '0' : '1')
+          .style('height', px(this.heightScale))
           .append('div')
             .style('position', 'absolute')
-            .style('color', byDatasetIndex(this.label_inside_colors, this.num_datasets))
+            .style('color', byDatasetIndex(this.labelInsideColors, this.numDatasets))
             .style('bottom', '0')
             .style('left', '0')
             .style('text-align', 'center')
@@ -327,8 +327,8 @@
       }
       else {
         return this.transitionPromise(exit.transition()
-          .delay(this.animation_delay)
-          .duration(this.animation_duration)
+          .delay(this.animationDelay)
+          .duration(this.animationDuration)
           .attr('width', '0')
           .style('opacity', '0')
           .remove());
@@ -343,8 +343,8 @@
       }
       else {
         return this.transitionPromise(exit.transition()
-          .delay(this.animation_delay)
-          .duration(this.animation_duration)
+          .delay(this.animationDelay)
+          .duration(this.animationDuration)
           .style('width', '0')
           .style('opacity', '0')
           .remove());
@@ -359,8 +359,8 @@
       }
       else {
         return this.transitionPromise(exit.transition()
-          .delay(this.animation_delay)
-          .duration(this.animation_duration)
+          .delay(this.animationDelay)
+          .duration(this.animationDuration)
           .style('width', '0')
           .style('opacity', '0')
           .remove());
@@ -373,13 +373,13 @@
       }
       else {
         return this.transitionPromise(bars.transition()
-          .delay(this.animation_delay)
-          .duration(this.animation_duration)
+          .delay(this.animationDelay)
+          .duration(this.animationDuration)
           .style('opacity', '1')
-          .attr('height', px(this.height_scale))
-          .attr('width', this.bar_width)
-          .attr('x', byIndex(this.x_scale))
-          .attr('y', this.y_scale));
+          .attr('height', px(this.heightScale))
+          .attr('width', this.barWidth)
+          .attr('x', byIndex(this.xScale))
+          .attr('y', this.yScale));
       }
     };
 
@@ -389,12 +389,12 @@
       }
       else {
         return this.transitionPromise(labelsTop.transition()
-          .delay(this.animation_delay)
-          .duration(this.animation_duration)
+          .delay(this.animationDelay)
+          .duration(this.animationDuration)
           .style('opacity', '1')
-          .style('width', this.bar_width + 'px')
-          .style('left', px(byIndex(this.x_scale)))
-          .style('top', px(this.label_top_y_scale)));
+          .style('width', this.barWidth + 'px')
+          .style('left', px(byIndex(this.xScale)))
+          .style('top', px(this.labelTopYScale)));
       }
     };
 
@@ -406,34 +406,34 @@
       }
       else {
         var labelsInsideTransition = labelsInside.transition()
-          .delay(this.animation_delay)
-          .duration(this.animation_duration)
+          .delay(this.animationDelay)
+          .duration(this.animationDuration)
           .style('opacity', '1')
-          .style('left', px(byIndex(this.x_scale)))
-          .style('width', this.bar_width + 'px');
+          .style('left', px(byIndex(this.xScale)))
+          .style('width', this.barWidth + 'px');
     
         //if we have positive numbers less than 5 digits in length, animate them!
         if (this.minimum >= 0 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
-          labelsInsideTransition.tween('label_inside_text', function(d) {
+          labelsInsideTransition.tween('labelInsideText', function(d) {
             var $this = d3.select(this);
             var textDiv = $this.select('div')[0][0];
-            var start = window.parseInt($this.style('height')) || chart.min_bar_size;
+            var start = window.parseInt($this.style('height')) || chart.minBarSize;
 
-            //using height_scale to ensure that the values shown are consistent with the exact scale of the graph
-            var tick_scale = d3.scale.linear()
+            //using heightScale to ensure that the values shown are consistent with the exact scale of the graph
+            var tickScale = d3.scale.linear()
               .domain([0, 1])
-              .range([start, chart.height_scale(d)]);
+              .range([start, chart.heightScale(d)]);
 
             return function(t) {
-              textDiv.textContent = Math.round(chart.height_scale.invert(tick_scale(t)));
+              textDiv.textContent = Math.round(chart.heightScale.invert(tickScale(t)));
             };
           });
         }
-        //otherwise, pass them through the prettify_number routine
+        //otherwise, pass them through the prettifyNumber routine
         else {
           //TODO make sure this still works
           labelsInside.selectAll('div')
-            .html(this.prettify_number);
+            .html(this.prettifyNumber);
         }
 
         return this.transitionPromise(labelsInsideTransition);
@@ -442,7 +442,7 @@
   
     BarChart.prototype.LN10x2 = Math.LN10 * 2;
     //TODO ability to parameterize based on domain of dataset?
-    BarChart.prototype.prettify_number = function(num) {
+    BarChart.prototype.prettifyNumber = function(num) {
       var suffixes = ' kMBT';
       var abs = Math.abs(num);
       var mag;
