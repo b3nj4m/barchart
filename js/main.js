@@ -15,7 +15,8 @@ var bc = new BarChart({
 });
 
 function data() {
-  bc.data([randomItems(6), randomItems(6)]);
+  var numItems = _.random(4, 8);
+  bc.data([randomItems(numItems), randomItems(numItems)]);
 }
 
 data();

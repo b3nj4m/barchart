@@ -1,5 +1,6 @@
 //TODO unit tests
 //TODO trend lines
+//TODO support overlay as well as side-by-side
 //TODO warnings about bad height_scale + domain choices
 //TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
@@ -10,7 +11,7 @@
 //TODO best way to implement tooltip without coupling to a particular library?
 
 (function() {
-  function defineBarChart(d3, _) {
+  function defineBarChart(d3, _, Q) {
     function px(fn) {
       return function() {
         return fn.apply(this, arguments) + 'px';
@@ -46,6 +47,7 @@
       }
     };
 
+    //TODO accept new id fn/attr to support data-source change
     BarChart.prototype.data = function(data) {
       if (!_.isArray(data)) {
         console.warn('Data should be an array.');
@@ -232,60 +234,187 @@
       var labels_top = this.$container.selectAll('.label-top').data(this.values);
       var labels_inside = this.$container.selectAll('.label-inside').data(this.values);
   
-      var bars_enter = bars.enter();
       var chart = this;
-      if (!bars_enter.empty()) {
-        bars_enter = bars_enter.append('rect')
+
+      Q.all([
+        this.addNewBars(bars),
+        this.addNewLabelsTop(labels_top),
+        this.addNewLabelsInside(labels_inside)
+      ]).then(function() {
+        return Q.all([
+          chart.removeOldBars(bars),
+          chart.removeOldLabelsTop(labels_top),
+          chart.removeOldLabelsInside(labels_inside)
+        ]);
+      }).then(function() {
+        return Q.all([
+          chart.transitionBars(bars),
+          chart.transitionLabelsTop(labels_top),
+          chart.transitionLabelsInside(labels_inside)
+        ]);
+      });
+     
+      this.has_rendered = true;
+    };
+
+    BarChart.prototype.addNewBars = function(bars) {
+      var enter = bars.enter();
+
+      if (!enter.empty()) {
+        enter = enter.append('rect')
           .attr('x', byIndex(this.x_scale))
           .attr('y', this.y_scale(this.minimum))
-          .attr('width', this.bar_width)
+          .attr('width', this.has_rendered ? '0' : this.bar_width)
           .attr('height', this.height_scale(this.minimum))
+          .style('opacity', this.has_rendered ? '0' : '1')
           .style('fill', byDatasetIndex(this.bar_colors, this.num_datasets));
-  
-        labels_top.enter().append('div')
+      }
+
+      return Q(enter);
+    };
+
+    BarChart.prototype.addNewLabelsTop = function(labelsTop) {
+      var enter = labelsTop.enter();
+
+      if (!enter.empty()) {
+        enter = enter.append('div')
           .classed('label-top', true)
           .text(byIndex(this.labels_top))
           .style('position', 'absolute')
           .style('color', byDatasetIndex(this.label_top_colors, this.num_datasets))
           .style('top', this.label_top_y_scale(this.minimum, this) + 'px')
           .style('left', px(byIndex(this.x_scale)))
-          .style('width', this.bar_width + 'px')
+          .style('width', this.has_rendered ? '0' : this.bar_width + 'px')
+          .style('opacity', this.has_rendered ? '0' : '1')
           .style('line-height', this.label_size + 'px')
           .style('text-align', 'center');
-  
-        labels_inside.enter().append('div')
+      }
+
+      return Q(enter);
+    };
+
+    BarChart.prototype.addNewLabelsInside = function(labelsInside) {
+      var enter = labelsInside.enter();
+
+      if (!enter.empty()) {
+        enter = enter.append('div')
           .classed('label-inside', true)
           .style('position', 'absolute')
           .style('overflow', 'hidden')
           .style('top', px(this.y_scale))
           .style('left', px(byIndex(this.x_scale)))
-          .style('width', this.bar_width + 'px')
+          .style('width', this.has_rendered ? '0' : this.bar_width + 'px')
+          .style('opacity', this.has_rendered ? '0' : '1')
           .style('height', px(this.height_scale))
-        .append('div')
-          .style('position', 'absolute')
-          .style('color', byDatasetIndex(this.label_inside_colors, this.num_datasets))
-          .style('bottom', '0')
-          .style('left', '0')
-          .style('text-align', 'center')
-          .style('width', '100%')
-          .text(this.minimum)
+          .append('div')
+            .style('position', 'absolute')
+            .style('color', byDatasetIndex(this.label_inside_colors, this.num_datasets))
+            .style('bottom', '0')
+            .style('left', '0')
+            .style('text-align', 'center')
+            .style('width', '100%')
+            .text(this.minimum);
       }
-      
-      bars.transition()
-        .delay(this.animation_delay)
-        .duration(this.animation_duration)
-        .attr('height', px(this.height_scale))
-        .attr('y', this.y_scale);
-  
-      labels_top.transition()
-        .delay(this.animation_delay)
-        .duration(this.animation_duration)
-        .style('top', px(this.label_top_y_scale));
-  
-      //if we have positive numbers less than 5 digits in length, animate them!
-      if (this.minimum >= 0 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
-        labels_inside.transition()
-          .tween('label_inside_text', function(d) {
+
+      return Q(enter);
+    };
+
+    BarChart.prototype.removeOldBars = function(bars) {
+      var exit = bars.exit();
+
+      if (exit.empty()) {
+        return Q(bars);
+      }
+      else {
+        return this.transitionPromise(exit.transition()
+          .delay(this.animation_delay)
+          .duration(this.animation_duration)
+          .attr('width', '0')
+          .style('opacity', '0')
+          .remove());
+      }
+    };
+
+    BarChart.prototype.removeOldLabelsTop = function(labelsTop) {
+      var exit = labelsTop.exit();
+
+      if (exit.empty()) {
+        return Q(labelsTop);
+      }
+      else {
+        return this.transitionPromise(exit.transition()
+          .delay(this.animation_delay)
+          .duration(this.animation_duration)
+          .style('width', '0')
+          .style('opacity', '0')
+          .remove());
+      }
+    };
+
+    BarChart.prototype.removeOldLabelsInside = function(labelsInside) {
+      var exit = labelsInside.exit();
+
+      if (exit.empty()) {
+        return Q(labelsInside);
+      }
+      else {
+        return this.transitionPromise(exit.transition()
+          .delay(this.animation_delay)
+          .duration(this.animation_duration)
+          .style('width', '0')
+          .style('opacity', '0')
+          .remove());
+      }
+    };
+
+    BarChart.prototype.transitionBars = function(bars) {
+      if (bars.empty()) {
+        return Q(bars);
+      }
+      else {
+        return this.transitionPromise(bars.transition()
+          .delay(this.animation_delay)
+          .duration(this.animation_duration)
+          .style('opacity', '1')
+          .attr('height', px(this.height_scale))
+          .attr('width', this.bar_width)
+          .attr('x', byIndex(this.x_scale))
+          .attr('y', this.y_scale));
+      }
+    };
+
+    BarChart.prototype.transitionLabelsTop = function(labelsTop) {
+      if (labelsTop.empty()) {
+        return Q(labelsTop);
+      }
+      else {
+        return this.transitionPromise(labelsTop.transition()
+          .delay(this.animation_delay)
+          .duration(this.animation_duration)
+          .style('opacity', '1')
+          .style('width', this.bar_width + 'px')
+          .style('left', px(byIndex(this.x_scale)))
+          .style('top', px(this.label_top_y_scale)));
+      }
+    };
+
+    BarChart.prototype.transitionLabelsInside = function(labelsInside) {
+      var chart = this;
+
+      if (labelsInside.empty()) {
+        return Q(labelsInside);
+      }
+      else {
+        var labelsInsideTransition = labelsInside.transition()
+          .delay(this.animation_delay)
+          .duration(this.animation_duration)
+          .style('opacity', '1')
+          .style('left', px(byIndex(this.x_scale)))
+          .style('width', this.bar_width + 'px');
+    
+        //if we have positive numbers less than 5 digits in length, animate them!
+        if (this.minimum >= 0 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
+          labelsInsideTransition.tween('label_inside_text', function(d) {
             var $this = d3.select(this);
             var textDiv = $this.select('div')[0][0];
             var start = window.parseInt($this.style('height')) || chart.min_bar_size;
@@ -298,17 +427,17 @@
             return function(t) {
               textDiv.textContent = Math.round(chart.height_scale.invert(tick_scale(t)));
             };
-          })
-          .delay(this.animation_delay)
-          .duration(this.animation_duration);
+          });
+        }
+        //otherwise, pass them through the prettify_number routine
+        else {
+          //TODO make sure this still works
+          labelsInside.selectAll('div')
+            .html(this.prettify_number);
+        }
+
+        return this.transitionPromise(labelsInsideTransition);
       }
-      //otherwise, pass them through the prettify_number routine
-      else {
-        labels_inside.selectAll('div')
-          .html(this.prettify_number);
-      }
-  
-      this.has_rendered = true;
     };
   
     BarChart.prototype.LN10x2 = Math.LN10 * 2;
@@ -343,16 +472,32 @@
         return num.toString();
       }
     };
-  
+
+    BarChart.prototype.transitionPromise = function(transition) {
+      var defer = Q.defer();
+      var count = 0;
+      var size = transition.size();
+
+      transition.each('end', function() {
+        count++;
+        if (count === size) {
+          defer.resolve(transition);
+        }
+      });
+
+      return defer.promise;
+    };
+ 
     return BarChart;
   };
+
   if (typeof define === 'function' && define.amd) {
-    define('barchart', ['d3', 'underscore'], defineBarChart);
+    define('barchart', ['d3', 'underscore', 'q'], defineBarChart);
   }
   else if (typeof exports === 'object' && typeof module !== 'undefined' && typeof require === 'function') {
-    module.exports = defineBarChart(require('d3'), require('underscore'));
+    module.exports = defineBarChart(require('d3'), require('underscore'), require('q'));
   }
   else {
-    BarChart = defineBarChart(d3, _);
+    BarChart = defineBarChart(d3, _, Q);
   }
 }());
