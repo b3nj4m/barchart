@@ -9,13 +9,14 @@ function randomItems(num) {
 
 var bc = new BarChart({
   barColors: ['#00AB8E', '#33CCDD'],
-  labelInside_colors: ['#FFF', '#333'],
+  labelInsideColors: ['#FFF', '#333'],
   autoScale: true,
   container: document.getElementById('chart-container')
 });
 
 function data() {
-  var numItems = _.random(4, 8);
+  //var numItems = _.random(4, 8);
+  var numItems = 6;
   bc.data([randomItems(numItems), randomItems(numItems)]);
 }
 
