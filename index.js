@@ -48,10 +48,13 @@
     };
 
     //TODO accept new id fn/attr to support data-source change
-    BarChart.prototype.data = function(data) {
+    BarChart.prototype.data = function(data, dataIdKey) {
       if (!_.isArray(data)) {
         console.warn('Data should be an array.');
         data = [data];
+      }
+      if (typeof dataIdKey !== 'undefined') {
+        this.dataIdKey = dataIdKey;
       }
 
       if (!_.isArray(data[0])) {
@@ -77,7 +80,9 @@
         return _.isNumber(point) ? null : point[chart.labelInsideKey];
       });
 
-      this.ids = _.map(this.values, _.uniqueId);
+      this.ids = _.map(data, function(point, idx) {
+        return _.isNumber(point) || !chart.dataIdKey ? idx : point[chart.dataIdKey];
+      });
 
       var extrema = d3.extent(this.values);
       this.minimum = extrema[0];
@@ -118,6 +123,7 @@
     BarChart.prototype.groupSpacing = 8;
     BarChart.prototype.chartPadding = 0;
     BarChart.prototype.numDatasets = 0;
+    BarChart.prototype.dataIdKey = null;
     BarChart.prototype.dataValueKey = 'value';
     BarChart.prototype.height = 300;
     BarChart.prototype.width = 700;
@@ -230,9 +236,9 @@
         this.heightScaleType = BarChart.prototype.heightScaleType;
       }
   
-      var bars = this.svg.selectAll('rect').data(this.values);
-      var labelsTop = this.$container.selectAll('.label-top').data(this.values);
-      var labelsInside = this.$container.selectAll('.label-inside').data(this.values);
+      var bars = this.svg.selectAll('rect').data(this.values, byIndex(this.ids));
+      var labelsTop = this.$container.selectAll('.label-top').data(this.values, byIndex(this.ids));
+      var labelsInside = this.$container.selectAll('.label-inside').data(this.values, byIndex(this.ids));
   
       var chart = this;
 
