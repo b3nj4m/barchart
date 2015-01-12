@@ -12,6 +12,22 @@
 
 (function() {
   function defineBarChart(d3, _, Q) {
+    function getId(d, i) {
+      return d.__chartPointId;
+    }
+
+    function getValue(d, i) {
+      return d.__chartPointValue;
+    }
+
+    function getLabelTop(d, i) {
+      return d.__chartLabelTop;
+    }
+
+    function getLabelInside(d, i) {
+      return d.__chartLabelInside;
+    }
+
     function px(fn) {
       return function() {
         return fn.apply(this, arguments) + 'px';
@@ -47,7 +63,6 @@
       }
     };
 
-    //TODO accept new id fn/attr to support data-source change
     BarChart.prototype.data = function(data, dataIdKey) {
       if (!_.isArray(data)) {
         console.warn('Data should be an array.');
@@ -68,25 +83,24 @@
 
       var chart = this;
 
-      this.values = _.map(data, function(point) {
-        return _.isNumber(point) ? point : point[chart.dataValueKey];
+      data = _.map(data, function(point, idx) {
+        var isNumber = _.isNumber(point);
+        var obj = isNumber ? {} : point;
+
+        //create ID prefixed with dataset number
+        obj.__chartPointId = isNumber || !chart.dataIdKey ? idx : (Math.floor(idx / chart.datasetSize) + 1) + ':' + obj[chart.dataIdKey];
+        obj.__chartLabelInside =  isNumber ? null : obj[chart.labelInsideKey];
+        obj.__chartLabelTop = isNumber ? null : obj[chart.labelTopKey];
+        obj.__chartPointValue = isNumber ? point : obj[chart.dataValueKey];
+
+        return obj;
       });
 
-      this.labelsTop = _.map(data, function(point) {
-        return _.isNumber(point) ? null : point[chart.labelTopKey];
-      });
-
-      this.labelsInside = _.map(data, function(point) {
-        return _.isNumber(point) ? null : point[chart.labelInsideKey];
-      });
-
-      this.ids = _.map(data, function(point, idx) {
-        return _.isNumber(point) || !chart.dataIdKey ? idx : point[chart.dataIdKey];
-      });
-
-      var extrema = d3.extent(this.values);
+      var extrema = d3.extent(_.map(data, getValue));
       this.minimum = extrema[0];
       this.maximum = extrema[1];
+
+      this._data = data;
 
       this.render();
     };
@@ -142,14 +156,14 @@
         this.width = this.containerElem.scrollWidth || this.width;
       }
   
-      if (this.values.length === 0) {
+      if (this._data.length === 0) {
         return;
       }
 
       this.minBarSize = this.labelSize + this.labelPadding * 2;
       this.maxBarSize = Math.max(this.minBarSize, this.height - this.chartPadding - this.labelSize - this.labelPadding * 2);
 
-      this.barWidth = Math.floor((this.width - this.chartPadding * 2 - (this.values.length - 1) * this.barSpacing - (this.datasetSize - 1) * this.groupSpacing) / this.values.length);
+      this.barWidth = Math.floor((this.width - this.chartPadding * 2 - (this._data.length - 1) * this.barSpacing - (this.datasetSize - 1) * this.groupSpacing) / this._data.length);
       this.labelWidth = this.barWidth - this.labelPadding * 2;
   
       var heightScale = d3.scale[this.heightScaleType]()
@@ -208,7 +222,7 @@
         .style('height', this.height + 'px')
         .style('width', this.width + 'px');
 
-      if (this.values === undefined || this.values.length == 0) {
+      if (this._data === undefined || this._data.length == 0) {
         this.$container.classed('no-data', true);
         this.svg.remove();
         delete this.svg;
@@ -236,9 +250,9 @@
         this.heightScaleType = BarChart.prototype.heightScaleType;
       }
   
-      var bars = this.svg.selectAll('rect').data(this.values, byIndex(this.ids));
-      var labelsTop = this.$container.selectAll('.label-top').data(this.values, byIndex(this.ids));
-      var labelsInside = this.$container.selectAll('.label-inside').data(this.values, byIndex(this.ids));
+      var bars = this.svg.selectAll('rect').data(this._data, getId);
+      var labelsTop = this.$container.selectAll('.label-top').data(this._data, getId);
+      var labelsInside = this.$container.selectAll('.label-inside').data(this._data, getId);
   
       var chart = this;
 
@@ -285,7 +299,7 @@
       if (!enter.empty()) {
         enter = enter.append('div')
           .classed('label-top', true)
-          .text(byIndex(this.labelsTop))
+          .text(getLabelTop)
           .style('position', 'absolute')
           .style('color', byDatasetIndex(this.labelTopColors, this.numDatasets))
           .style('top', this.labelTopYScale(this.minimum, this) + 'px')
@@ -307,11 +321,11 @@
           .classed('label-inside', true)
           .style('position', 'absolute')
           .style('overflow', 'hidden')
-          .style('top', px(this.yScale))
+          .style('top', px(_.compose(this.yScale, getValue)))
           .style('left', px(byIndex(this.xScale)))
           .style('width', this.hasRendered ? '0' : this.barWidth + 'px')
           .style('opacity', this.hasRendered ? '0' : '1')
-          .style('height', px(this.heightScale))
+          .style('height', px(_.compose(this.heightScale, getValue)))
           .append('div')
             .style('position', 'absolute')
             .style('color', byDatasetIndex(this.labelInsideColors, this.numDatasets))
@@ -382,10 +396,10 @@
           .delay(this.animationDelay)
           .duration(this.animationDuration)
           .style('opacity', '1')
-          .attr('height', px(this.heightScale))
+          .attr('height', px(_.compose(this.heightScale, getValue)))
           .attr('width', this.barWidth)
           .attr('x', byIndex(this.xScale))
-          .attr('y', this.yScale));
+          .attr('y', _.compose(this.yScale, getValue)));
       }
     };
 
@@ -400,7 +414,7 @@
           .style('opacity', '1')
           .style('width', this.barWidth + 'px')
           .style('left', px(byIndex(this.xScale)))
-          .style('top', px(this.labelTopYScale)));
+          .style('top', px(_.compose(this.labelTopYScale, getValue))));
       }
     };
 
@@ -428,7 +442,7 @@
             //using heightScale to ensure that the values shown are consistent with the exact scale of the graph
             var tickScale = d3.scale.linear()
               .domain([0, 1])
-              .range([start, chart.heightScale(d)]);
+              .range([start, chart.heightScale(getValue(d))]);
 
             return function(t) {
               textDiv.textContent = Math.round(chart.heightScale.invert(tickScale(t)));
