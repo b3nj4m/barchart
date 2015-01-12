@@ -96,7 +96,7 @@ Padding around the outer edges of the chart in pixels (default: `10`).
 
 #### dataValueKey
 
-The key to use when looking up a value on an item in the data array (default: `'value``).
+The key to use when looking up a value on an item in the data array (default: `'value'`).
 
 #### height
 
