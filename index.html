@@ -29,109 +29,46 @@
 
         <p>Easily generate animated SVG barcharts in the browser using <code>d3.js</code> and <code>barchart.js</code>.</p>
 
+        <h4>Demo</h4>
+
         <p id="chart-container"></p>
 
-<div class="highlight"><pre><span class="nx">requirejs</span><span class="p">.</span><span class="nx">config</span><span class="p">({</span>
-  <span class="nx">shim</span><span class="o">:</span> <span class="p">{</span>
-    <span class="s1">&#39;d3&#39;</span><span class="o">:</span> <span class="p">{</span><span class="nx">exports</span><span class="o">:</span> <span class="s1">&#39;d3&#39;</span><span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">});</span>
-<span class="nx">define</span><span class="p">([</span><span class="s1">&#39;barchart&#39;</span><span class="p">],</span> <span class="kd">function</span><span class="p">(</span><span class="nx">BarChart</span><span class="p">)</span> <span class="p">{</span>
-  <span class="kd">var</span> <span class="nx">bc</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">BarChart</span><span class="p">({</span>
-    <span class="nx">data</span><span class="o">:</span> <span class="p">[[</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#1&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">12</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#2&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">20</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#3&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">30</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#4&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">70</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#5&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">63</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#6&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">35</span><span class="p">}</span>
-    <span class="p">],[</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#1&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">2</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#2&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">10</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#3&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">3</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#4&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">7</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#5&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">6</span><span class="p">},</span>
-      <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;#6&#39;&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="o">:</span> <span class="mi">3</span><span class="p">}</span>
-    <span class="p">]],</span>
-    <span class="nx">bar_colors</span><span class="o">:</span> <span class="p">[</span><span class="s1">&#39;#00AB8E&#39;</span><span class="p">,</span> <span class="s1">&#39;#33CCDD&#39;</span><span class="p">],</span>
-    <span class="nx">label_inside_colors</span><span class="o">:</span> <span class="p">[</span><span class="s1">&#39;#FFF&#39;</span><span class="p">,</span> <span class="s1">&#39;#333&#39;</span><span class="p">],</span>
-    <span class="nx">auto_scale</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
-    <span class="nx">container</span><span class="o">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;chart-container&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span class="kd">var</span> <span class="nx">BarChart</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;..&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">_</span> <span class="o">=</span> <span class="nx">require</span><span class="p">(</span><span class="s1">&#39;underscore&#39;</span><span class="p">);</span>
+
+<span class="kd">function</span> <span class="nx">randomItems</span><span class="p">(</span><span class="nx">num</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">_</span><span class="p">.</span><span class="nx">map</span><span class="p">(</span><span class="nx">_</span><span class="p">.</span><span class="nx">range</span><span class="p">(</span><span class="nx">num</span><span class="p">),</span> <span class="kd">function</span><span class="p">(</span><span class="nx">val</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="p">{</span><span class="nx">name</span><span class="o">:</span> <span class="s1">&#39;#&#39;</span> <span class="o">+</span> <span class="nx">val</span><span class="p">,</span> <span class="nx">value</span><span class="o">:</span> <span class="nx">_</span><span class="p">.</span><span class="nx">random</span><span class="p">(</span><span class="mi">99</span><span class="p">)};</span>
   <span class="p">});</span>
-  <span class="nx">bc</span><span class="p">.</span><span class="nx">render</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="kd">var</span> <span class="nx">chart</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">BarChart</span><span class="p">({</span>
+  <span class="nx">barColors</span><span class="o">:</span> <span class="p">[</span><span class="s1">&#39;#00AB8E&#39;</span><span class="p">,</span> <span class="s1">&#39;#33CCDD&#39;</span><span class="p">],</span>
+  <span class="nx">labelInsideColors</span><span class="o">:</span> <span class="p">[</span><span class="s1">&#39;#FFF&#39;</span><span class="p">,</span> <span class="s1">&#39;#333&#39;</span><span class="p">],</span>
+  <span class="nx">autoScale</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
+  <span class="nx">minimum</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+  <span class="nx">maximum</span><span class="o">:</span> <span class="mi">100</span><span class="p">,</span>
+  <span class="nx">container</span><span class="o">:</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;chart-container&#39;</span><span class="p">)</span>
 <span class="p">});</span>
+
+<span class="kd">var</span> <span class="nx">numItems</span> <span class="o">=</span> <span class="mi">6</span><span class="p">;</span>
+
+<span class="kd">function</span> <span class="nx">data</span><span class="p">()</span> <span class="p">{</span>
+  <span class="nx">chart</span><span class="p">.</span><span class="nx">data</span><span class="p">([</span><span class="nx">randomItems</span><span class="p">(</span><span class="nx">numItems</span><span class="p">),</span> <span class="nx">randomItems</span><span class="p">(</span><span class="nx">numItems</span><span class="p">)]);</span>
+<span class="p">}</span>
+
+<span class="nx">data</span><span class="p">();</span>
+
+<span class="nb">window</span><span class="p">.</span><span class="nx">setInterval</span><span class="p">(</span><span class="nx">data</span><span class="p">,</span> <span class="mi">10000</span><span class="p">);</span>
 </pre></div>
 
       </section>
-
-      <section>
-        <h3>Config Options</h3>
-
-<div class="highlight"><pre><code><span class="kd">var</span> <span class="nx">bc</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">BarChart</span><span class="p">({</span>
-  <span class="c1">//DOM element to render the chart into</span>
-  <span class="nx">container</span><span class="o">:</span> <span class="kc">null</span><span class="p">,</span>
-
-  <span class="c1">//set to false if you don&#39;t want animation</span>
-  <span class="nx">is_animated</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
-
-  <span class="c1">//animation duration in ms</span>
-  <span class="nx">animation_duration</span><span class="o">:</span> <span class="mi">400</span><span class="p">,</span>
-
-  <span class="c1">//whether or not BarChart should scale to the width of the container</span>
-  <span class="nx">auto_scale</span><span class="o">:</span> <span class="kc">false</span><span class="p">,</span>
-
-  <span class="c1">//which of d3's scale types to use</span>
-  <span class="nx">height_scale_type</span><span class="o">:</span> <span class="s1">&#39;linear&#39;</span><span class="p">,</span>
-
-  <span class="c1">//color to fill the bars with (also accepts an array for multi-dataset support)</span>
-  <span class="nx">bar_colors</span><span class="o">:</span> <span class="s1">&#39;#00AB8E&#39;</span><span class="p">,</span>
-
-  <span class="c1">//distance between each bar</span>
-  <span class="nx">bar_spacing</span><span class="o">:</span> <span class="mi">20</span><span class="p">,</span>
-
-  <span class="c1">//padding around the outer edges of the chart</span>
-  <span class="nx">chart_padding</span><span class="o">:</span> <span class="mi">10</span><span class="p">,</span>
-
-  <span class="c1">//the data from which the chart will be rendered</span>
-  <span class="nx">data</span><span class="o">:</span> <span class="p">[],</span>
-
-  <span class="c1">//the key to use when looking up a value on an item in the data array</span>
-  <span class="nx">data_value_key</span><span class="o">:</span> <span class="s1">&#39;value&#39;</span><span class="p">,</span>
-
-  <span class="c1">//default height of the chart in pixels</span>
-  <span class="nx">height</span><span class="o">:</span> <span class="mi">300</span><span class="p">,</span>
-
-  <span class="c1">//default width of the chart if not using auto_scale</span>
-  <span class="nx">width</span><span class="o">:</span> <span class="mi">700</span><span class="p">,</span>
-
-  <span class="c1">//text color of the top labels (also accepts an array for multi-dataset support)</span>
-  <span class="nx">label_top_colors</span><span class="o">:</span> <span class="s1">&#39;#003D4C&#39;</span><span class="p">,</span>
-
-  <span class="c1">//text color of the labels inside the bars (also accepts an array for multi-dataset support)</span>
-  <span class="nx">label_inside_colors</span><span class="o">:</span> <span class="s1">&#39;#FFF&#39;</span><span class="p">,</span>
-
-  <span class="c1">//should usually be the same as the data_value_key</span>
-  <span class="nx">label_inside_key</span><span class="o">:</span> <span class="s1">&#39;value&#39;</span><span class="p">,</span>
-
-  <span class="c1">//padding in pixels around each label</span>
-  <span class="nx">label_padding</span><span class="o">:</span> <span class="mi">3</span><span class="p">,</span>
-
-  <span class="c1">//font size of the label texts</span>
-  <span class="nx">label_size</span><span class="o">:</span> <span class="mi">16</span><span class="p">,</span>
-
-  <span class="c1">//the key to use when looking up the top label (usually a name) on an item in the data array</span>
-  <span class="nx">label_top_key</span><span class="o">:</span> <span class="s1">&#39;name&#39;</span>
-<span class="p">});</span>
-</code></pre></div>
-
-      </section>
-
       <footer>
         <p>This project is maintained by <a href="https://github.com/b3nj4m">b3nj4m</a></p>
         <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
       </footer>
     </div>
     <script src="javascripts/scale.fix.js"></script>
-    <script type="text/javascript" src="javascripts/require.js" data-main="javascripts/main.js"></script>
+    <script type="text/javascript" src="javascripts/main.js"></script>
   </body>
 </html>
