@@ -152,10 +152,6 @@
     BarChart.prototype.computeBoundaries = function() {
       var chart = this;
 
-      if (this.autoScale) {
-        this.width = this.containerElem.scrollWidth || this.width;
-      }
-  
       if (this._data.length === 0) {
         return;
       }
@@ -216,6 +212,10 @@
 
         this.$container = d3.select(this.container).append('div').style('position', 'relative');
         this.containerElem = this.$container[0][0];
+      }
+
+      if (this.autoScale) {
+        this.width = this.containerElem.scrollWidth || this.width;
       }
 
       this.$container
