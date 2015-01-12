@@ -437,7 +437,7 @@
           labelsInsideTransition.tween('labelInsideText', function(d) {
             var $this = d3.select(this);
             var textDiv = $this.select('div')[0][0];
-            var start = window.parseInt($this.style('height')) || chart.minBarSize;
+            var start = parseInt($this.style('height')) || chart.minBarSize;
 
             //using heightScale to ensure that the values shown are consistent with the exact scale of the graph
             var tickScale = d3.scale.linear()
