@@ -32,6 +32,16 @@ bc.data([[
 
 [demo](https://b3nj4m.github.io/barchart)
 
+### Methods
+
+#### data(data)
+
+Update the chart's data. Triggers a rendering of the chart.
+
+#### render()
+
+Renders the chart. If there is no data, you will simply get an empty `<div>` with the class `no-data`.
+
 ### Config Options
 
 Set config options when constructing chart object:
