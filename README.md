@@ -9,6 +9,8 @@ var bc = new BarChart({
   barColors: ['#00AB8E', '#33CCDD'],
   labelInsideColors: ['#FFF', '#333'],
   autoScale: true,
+  minimum: 0,
+  maximum: 100,
   container: document.getElementById('chart-container')
 });
 
@@ -67,6 +69,14 @@ Animation duration in ms (default: `400`).
 #### autoScale
 
 Whether or not BarChart should scale to the width of the container (default: `false`).
+
+#### minimum
+
+The value which would be displayed at the bottom of the chart (default: computed from data).
+
+#### maximum
+
+The value which would be displayed at the top of the chart (default: computed from data).
 
 #### heightScaleType
 

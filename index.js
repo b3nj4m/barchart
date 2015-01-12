@@ -97,8 +97,8 @@
       });
 
       var extrema = d3.extent(_.map(data, getValue));
-      this.minimum = extrema[0];
-      this.maximum = extrema[1];
+      this._minimum = _.isNull(this.minimum) ? extrema[0] : this.minimum;
+      this._maximum = _.isNull(this.maximum) ? extrema[1] : this.maximum;
 
       this._data = data;
 
@@ -131,12 +131,14 @@
     BarChart.prototype.isAnimated = true;
     BarChart.prototype.animationDuration = 600;
     BarChart.prototype.autoScale = false;
-    BarChart.prototype.heightScaleType = 'log';
+    BarChart.prototype.heightScaleType = 'linear';
     BarChart.prototype.barColors = '#00AB8E';
     BarChart.prototype.barSpacing = 2;
     BarChart.prototype.groupSpacing = 8;
     BarChart.prototype.chartPadding = 0;
     BarChart.prototype.numDatasets = 0;
+    BarChart.prototype.minimum = null;
+    BarChart.prototype.maximum = null;
     BarChart.prototype.dataIdKey = null;
     BarChart.prototype.dataValueKey = 'value';
     BarChart.prototype.height = 300;
@@ -163,15 +165,15 @@
       this.labelWidth = this.barWidth - this.labelPadding * 2;
   
       var heightScale = d3.scale[this.heightScaleType]()
-        .domain([1, this.maximum - this.minimum + 1])
+        .domain([1, this._maximum - this._minimum + 1])
         .range([this.minBarSize, this.maxBarSize]);
 
       this.heightScale = function(val) {
         //shift domain to [1, max - min + 1] so it plays-nice with log, etc.
-        return heightScale(val + 1 - chart.minimum);
+        return heightScale(val + 1 - chart._minimum);
       };
       this.heightScale.invert = function(val) {
-        return heightScale.invert(val) + chart.minimum - 1;
+        return heightScale.invert(val) + chart._minimum - 1;
       };
 
       //record-group scale which maps group number to x-coord of left-most bar in the group
@@ -283,9 +285,9 @@
       if (!enter.empty()) {
         enter = enter.append('rect')
           .attr('x', byIndex(this.xScale))
-          .attr('y', this.yScale(this.minimum))
+          .attr('y', this.yScale(this._minimum))
           .attr('width', this.hasRendered ? '0' : this.barWidth)
-          .attr('height', this.heightScale(this.minimum))
+          .attr('height', this.heightScale(this._minimum))
           .style('opacity', this.hasRendered ? '0' : '1')
           .style('fill', byDatasetIndex(this.barColors, this.numDatasets));
       }
@@ -302,7 +304,7 @@
           .text(getLabelTop)
           .style('position', 'absolute')
           .style('color', byDatasetIndex(this.labelTopColors, this.numDatasets))
-          .style('top', this.labelTopYScale(this.minimum, this) + 'px')
+          .style('top', this.labelTopYScale(this._minimum, this) + 'px')
           .style('left', px(byIndex(this.xScale)))
           .style('width', this.hasRendered ? '0' : this.barWidth + 'px')
           .style('opacity', this.hasRendered ? '0' : '1')
@@ -333,7 +335,7 @@
             .style('left', '0')
             .style('text-align', 'center')
             .style('width', '100%')
-            .text(this.minimum);
+            .text(this._minimum);
       }
 
       return Q(enter);
@@ -433,7 +435,7 @@
           .style('width', this.barWidth + 'px');
     
         //if we have positive numbers less than 5 digits in length, animate them!
-        if (this.minimum >= 0 && this.maximum < 10000 && this.maximum - this.minimum > 10) {
+        if (this._minimum >= 0 && this._maximum < 10000 && this._maximum - this._minimum > 10) {
           labelsInsideTransition.tween('labelInsideText', function(d) {
             var $this = d3.select(this);
             var textDiv = $this.select('div')[0][0];

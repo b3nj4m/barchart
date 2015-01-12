@@ -3,25 +3,25 @@ var _ = require('underscore');
 
 function randomItems(num) {
   return _.map(_.range(num), function(val) {
-    return {id: _.uniqueId(), name: '#' + val, value: _.random(99)};
+    return {name: '#' + val, value: _.random(99)};
   });
 }
 
-window.chart = new BarChart({
+var chart = new BarChart({
   barColors: ['#00AB8E', '#33CCDD'],
   labelInsideColors: ['#FFF', '#333'],
-  dataIdKey: 'id',
   autoScale: true,
+  minimum: 0,
+  maximum: 100,
   container: document.getElementById('chart-container')
 });
 
+var numItems = 6;
+
 function data() {
-  var numItems = _.random(4, 8);
-  //var numItems = 6;
-  window.randomData = [randomItems(numItems), randomItems(numItems)];
-  chart.data(window.randomData);
+  chart.data([randomItems(numItems), randomItems(numItems)]);
 }
 
 data();
 
-//window.setInterval(data, 10000);
+window.setInterval(data, 10000);
