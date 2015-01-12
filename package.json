@@ -1,7 +1,7 @@
 {
-  "name": "barchart.js",
-  "version": "0.3.2",
-  "description": "barchart.js",
+  "name": "barchart",
+  "version": "0.4.0",
+  "description": "make some barcharts",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -14,8 +14,8 @@
     "chart",
     "barchart"
   ],
-  "author": "Ben Robbins",
-  "license": "BSD",
+  "author": "Ben Robbins <ben.robbins@gmail.com>",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/b3nj4m/barchart/issues"
   },
