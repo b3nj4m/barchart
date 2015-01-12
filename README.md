@@ -1,5 +1,7 @@
 ## barchart
 
+### Usage
+
 ```javascript
 var BarChart = require('barchart');
 
@@ -27,6 +29,8 @@ bc.data([[
   ]]
 );
 ```
+
+[demo](https://b3nj4m.github.io/barchart)
 
 ### Config Options
 
