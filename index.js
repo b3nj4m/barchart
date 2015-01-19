@@ -4,7 +4,6 @@
 //TODO warnings about bad heightScale + domain choices
 //TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
-//TODO allow user to artificially override the extrema
 //TODO allow as much as possible to be overriden with css
 //TODO graceful failure when data is missing values or labels, etc.
 //TODO tooltip showing full value
@@ -450,9 +449,9 @@
         }
         //otherwise, pass them through the prettifyNumber routine
         else {
-          //TODO make sure this still works
-          labelsInside.selectAll('div')
-            .html(this.prettifyNumber);
+          labelsInside.each(function(d, i) {
+            d3.select(this).select('div').html(chart.prettifyNumber(getValue(d)));
+          });
         }
 
         return this.transitionPromise(labelsInsideTransition);
