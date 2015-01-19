@@ -63,13 +63,10 @@
       }
     };
 
-    BarChart.prototype.data = function(data, dataIdKey) {
+    BarChart.prototype.data = function(data) {
       if (!_.isArray(data)) {
         console.warn('Data should be an array.');
         data = [data];
-      }
-      if (typeof dataIdKey !== 'undefined') {
-        this.dataIdKey = dataIdKey;
       }
 
       if (!_.isArray(data[0])) {
@@ -165,15 +162,15 @@
       this.labelWidth = this.barWidth - this.labelPadding * 2;
   
       var heightScale = d3.scale[this.heightScaleType]()
-        .domain([1, this._maximum - this._minimum + 1])
+        .domain([1, this.maximum - this.minimum + 1])
         .range([this.minBarSize, this.maxBarSize]);
 
       this.heightScale = function(val) {
         //shift domain to [1, max - min + 1] so it plays-nice with log, etc.
-        return heightScale(val + 1 - chart._minimum);
+        return heightScale(val + 1 - chart.minimum);
       };
       this.heightScale.invert = function(val) {
-        return heightScale.invert(val) + chart._minimum - 1;
+        return heightScale.invert(val) + chart.minimum - 1;
       };
 
       //record-group scale which maps group number to x-coord of left-most bar in the group
@@ -285,9 +282,9 @@
       if (!enter.empty()) {
         enter = enter.append('rect')
           .attr('x', byIndex(this.xScale))
-          .attr('y', this.yScale(this._minimum))
+          .attr('y', this.yScale(this.minimum))
           .attr('width', this.hasRendered ? '0' : this.barWidth)
-          .attr('height', this.heightScale(this._minimum))
+          .attr('height', this.heightScale(this.minimum))
           .style('opacity', this.hasRendered ? '0' : '1')
           .style('fill', byDatasetIndex(this.barColors, this.numDatasets));
       }
@@ -304,7 +301,7 @@
           .text(getLabelTop)
           .style('position', 'absolute')
           .style('color', byDatasetIndex(this.labelTopColors, this.numDatasets))
-          .style('top', this.labelTopYScale(this._minimum, this) + 'px')
+          .style('top', px(_.partial(this.labelTopYScale, this.minimum)))
           .style('left', px(byIndex(this.xScale)))
           .style('width', this.hasRendered ? '0' : this.barWidth + 'px')
           .style('opacity', this.hasRendered ? '0' : '1')
@@ -335,7 +332,7 @@
             .style('left', '0')
             .style('text-align', 'center')
             .style('width', '100%')
-            .text(this._minimum);
+            .text(this.minimum);
       }
 
       return Q(enter);
