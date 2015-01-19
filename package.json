@@ -1,6 +1,6 @@
 {
   "name": "barchart",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "make some barcharts",
   "main": "index.js",
   "scripts": {
