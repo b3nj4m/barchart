@@ -84,7 +84,7 @@ Which of d3's scale types to use (default: `'linear'`).
 
 #### barColors
 
-Color(s) to fill the bars with (also accepts an array for multi-dataset support) (default: `#00AB8E`).
+Color(s) to fill the bars with (also accepts an array for multi-dataset support) (default: generated).
 
 #### barSpacing
 
@@ -112,7 +112,7 @@ Text color of the top labels (also accepts an array for multi-dataset support) (
 
 #### labelInsideColors
 
-Text color of the labels inside the bars (also accepts an array for multi-dataset support) (default: `#FFF`).
+Text color of the labels inside the bars (also accepts an array for multi-dataset support) (default: generated to constrast with `barColors`).
 
 #### labelInsideKey
 
