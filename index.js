@@ -75,6 +75,11 @@
       this.numDatasets = data.length;
       this.datasetSize = d3.max(data, function(arr) { return arr.length; });
 
+      if (!this.barColors || this.barColors.length !== this.numDatasets) {
+        this.barColors = this.palette(this.numDatasets);
+        this.labelInsideColors = this.contrastingGrayPalette(this.barColors);
+      }
+
       data = _.flatten(_.zip.apply(_, data));
 
       var chart = this;
@@ -102,19 +107,22 @@
     };
 
     BarChart.prototype.palette = function(size, seed) {
-      seed = seed || d3.rgb(100, 100, 150);
-      var result = new Array(size);
-      var hsl;
-      result[0] = seed;
+      seed = seed || d3.hsl(_.random(360), 0.4, 0.7);
+      var start = d3.hsl(seed);
+      var end = d3.hsl(start);
+      var step = 360 / (size + 1);
+      end.h = step > end.h ? 360 - step : end.h - step;
+      var scale = d3.interpolateHsl(start, end);
 
-      for (var i = 1; i < size; i++) {
-        hsl = d3.hsl(result[i - 1]);
-        hsl.h = (hsl.h + 30) % 361;
-        result[i] = hsl.rgb();
-      }
+      return _.map(_.range(size), function(stepNumber) {
+        return scale(stepNumber / size).toString();
+      });
+    };
 
-      return _.map(result, function(rgb) {
-        return rgb.toString();
+    BarChart.prototype.contrastingGrayPalette = function(colors) {
+      return _.map(colors, function(color) {
+        color = d3.hsl(color);
+        return d3.hsl(0, 0, color.l > 0.5 ? 0.15 : 0.9);
       });
     };
   
@@ -128,7 +136,7 @@
     BarChart.prototype.animationDuration = 600;
     BarChart.prototype.autoScale = false;
     BarChart.prototype.heightScaleType = 'linear';
-    BarChart.prototype.barColors = '#00AB8E';
+    BarChart.prototype.barColors = null;
     BarChart.prototype.barSpacing = 2;
     BarChart.prototype.groupSpacing = 8;
     BarChart.prototype.chartPadding = 0;
