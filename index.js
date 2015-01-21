@@ -464,7 +464,7 @@
       }
     };
   
-    Chart.prototype.LN10x2 = Math.LN10 * 2;
+    var LN10x2 = Math.LN10 * 2;
     //TODO ability to parameterize based on domain of dataset?
     Chart.prototype.prettifyNumber = function(num) {
       var suffixes = ' kMBT';
@@ -475,7 +475,7 @@
       }
       else {
         //average with magnitude of num + 1 to correct for floating-point error
-        mag = Math.floor((Math.log(abs) + Math.log(abs + 1)) / (Chart.prototype.LN10x2));
+        mag = Math.floor((Math.log(abs) + Math.log(abs + 1)) / (LN10x2));
       }
   
       if (mag >= 3) {
@@ -524,4 +524,4 @@
   else {
     global.BarChart = defineBarChart(d3, _, Q);
   }
-}(window || global));
+}(typeof window !== 'undefined' ? window : this));
