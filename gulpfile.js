@@ -1,4 +1,5 @@
 var gulp = require('gulp');
+var jshint = require('gulp-jshint');
 var gutil = require('gulp-util');
 var less = require('gulp-less');
 var concat = require('gulp-concat');
@@ -10,7 +11,7 @@ var clean = require('gulp-clean');
 
 var port = gutil.env.port || 8000;
 
-gulp.task('dev', ['clean', 'static-files', 'build', 'less', 'watch'], function(done) {
+gulp.task('dev', ['clean', 'lint', 'static-files', 'build', 'less', 'watch'], function(done) {
   var app = connect();
   app.use(connect.static('build'));
 
@@ -30,6 +31,28 @@ gulp.task('dev', ['clean', 'static-files', 'build', 'less', 'watch'], function(d
 gulp.task('clean', function() {
   return gulp.src('build/**/*', {read: false})
     .pipe(clean());
+});
+
+gulp.task('lint', ['clean'], function() {
+  return gulp.src('index.js')
+    .pipe(jshint({
+      node: true,
+      browser: true,
+      undef: true,
+      unused: 'vars',
+      curly: true,
+      freeze: true,
+      latedef: true,
+      noarg: true,
+      trailing: true,
+      nonew: true,
+      newcap: false,
+      nonbsp: true,
+      maxdepth: 5,
+      maxcomplexity: 10,
+      predef: ["alert", "confirm", "prompt", "Q", "_", "d3", "define"]
+    }))
+    .pipe(jshint.reporter('default'));
 });
 
 gulp.task('static-files', ['clean'], function() {
