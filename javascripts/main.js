@@ -3,16 +3,13 @@
 //TODO trend lines
 //TODO support overlay as well as side-by-side
 //TODO warnings about bad heightScale + domain choices
-//TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
-//TODO allow user to artificially override the extrema
 //TODO allow as much as possible to be overriden with css
 //TODO graceful failure when data is missing values or labels, etc.
 //TODO tooltip showing full value
 //TODO best way to implement tooltip without coupling to a particular library?
-//TODO ability to specify fixed range
 
-(function() {
+(function(global) {
   function defineBarChart(d3, _, Q) {
     function getId(d, i) {
       return d.__chartPointId;
@@ -24,10 +21,6 @@
 
     function getLabelTop(d, i) {
       return d.__chartLabelTop;
-    }
-
-    function getLabelInside(d, i) {
-      return d.__chartLabelInside;
     }
 
     function px(fn) {
@@ -59,19 +52,16 @@
       };
     }
 
-    function BarChart(options) {
+    function Chart(options) {
       if (options) {
         _.extend(this, options);
       }
-    };
+    }
 
-    BarChart.prototype.data = function(data, dataIdKey) {
+    Chart.prototype.data = function(data) {
       if (!_.isArray(data)) {
         console.warn('Data should be an array.');
         data = [data];
-      }
-      if (typeof dataIdKey !== 'undefined') {
-        this.dataIdKey = dataIdKey;
       }
 
       if (!_.isArray(data[0])) {
@@ -81,13 +71,20 @@
       this.numDatasets = data.length;
       this.datasetSize = d3.max(data, function(arr) { return arr.length; });
 
+      if (!this.barColors || this.barColors.length !== this.numDatasets) {
+        this.barColors = this.palette(this.numDatasets);
+      }
+      if (!this.labelInsideColors || this.labelInsideColors.length !== this.numDatasets) {
+        this.labelInsideColors = this.contrastingGrayPalette(this.barColors);
+      }
+
       data = _.flatten(_.zip.apply(_, data));
 
       var chart = this;
 
       data = _.map(data, function(point, idx) {
         var isNumber = _.isNumber(point);
-        var obj = isNumber ? {} : point;
+        var obj = isNumber ? {} : _.clone(point);
 
         //create ID prefixed with dataset number
         obj.__chartPointId = isNumber || !chart.dataIdKey ? idx : (Math.floor(idx / chart.datasetSize) + 1) + ':' + obj[chart.dataIdKey];
@@ -107,53 +104,56 @@
       this.render();
     };
 
-    BarChart.prototype.palette = function(size, seed) {
-      seed = seed || d3.rgb(100, 100, 150);
-      var result = new Array(size);
-      var hsl;
-      result[0] = seed;
+    Chart.prototype.palette = function(size, seed) {
+      seed = seed || d3.hsl(_.random(360), 0.4, 0.7);
+      var start = d3.hsl(seed);
+      var end = d3.hsl(start);
+      var step = 360 / (size + 1);
+      end.h = step > end.h ? 360 - step : end.h - step;
+      var scale = d3.interpolateHsl(start, end);
 
-      for (var i = 1; i < size; i++) {
-        hsl = d3.hsl(result[i - 1]);
-        hsl.h = (hsl.h + 30) % 361;
-        result[i] = hsl.rgb();
-      }
+      return _.map(_.range(size), function(stepNumber) {
+        return scale(stepNumber / size).toString();
+      });
+    };
 
-      return _.map(result, function(rgb) {
-        return rgb.toString();
+    Chart.prototype.contrastingGrayPalette = function(colors) {
+      return _.map(colors, function(color) {
+        color = d3.hsl(color);
+        return d3.hsl(0, 0, color.l > 0.5 ? 0.15 : 0.9);
       });
     };
   
-    BarChart.prototype.animationDelay = function(d, i) {
+    Chart.prototype.animationDelay = function(d, i) {
       return i * 100;
     };
   
-    BarChart.prototype.container = null;
-    BarChart.prototype.hasRendered = false;
-    BarChart.prototype.isAnimated = true;
-    BarChart.prototype.animationDuration = 600;
-    BarChart.prototype.autoScale = false;
-    BarChart.prototype.heightScaleType = 'linear';
-    BarChart.prototype.barColors = '#00AB8E';
-    BarChart.prototype.barSpacing = 2;
-    BarChart.prototype.groupSpacing = 8;
-    BarChart.prototype.chartPadding = 0;
-    BarChart.prototype.numDatasets = 0;
-    BarChart.prototype.minimum = null;
-    BarChart.prototype.maximum = null;
-    BarChart.prototype.dataIdKey = null;
-    BarChart.prototype.dataValueKey = 'value';
-    BarChart.prototype.height = 300;
-    BarChart.prototype.width = 700;
-    BarChart.prototype.labelTopColors = '#003D4C';
-    BarChart.prototype.labelInsideColors = '#FFF';
-    BarChart.prototype.labelInsideKey = 'value';
-    BarChart.prototype.labelPadding = 3;
-    BarChart.prototype.labelSize = 16;
-    BarChart.prototype.labelTopKey = 'name';
+    Chart.prototype.container = null;
+    Chart.prototype.hasRendered = false;
+    Chart.prototype.isAnimated = true;
+    Chart.prototype.animationDuration = 600;
+    Chart.prototype.autoScale = false;
+    Chart.prototype.heightScaleType = 'linear';
+    Chart.prototype.barColors = null;
+    Chart.prototype.barSpacing = 2;
+    Chart.prototype.groupSpacing = 8;
+    Chart.prototype.chartPadding = 0;
+    Chart.prototype.numDatasets = 0;
+    Chart.prototype.minimum = null;
+    Chart.prototype.maximum = null;
+    Chart.prototype.dataIdKey = null;
+    Chart.prototype.dataValueKey = 'value';
+    Chart.prototype.height = 300;
+    Chart.prototype.width = 700;
+    Chart.prototype.labelTopColors = '#003D4C';
+    Chart.prototype.labelInsideColors = null;
+    Chart.prototype.labelInsideKey = 'value';
+    Chart.prototype.labelPadding = 3;
+    Chart.prototype.labelSize = 16;
+    Chart.prototype.labelTopKey = 'name';
   
     //TODO break this down into separate functions so you can override individual calculations
-    BarChart.prototype.computeBoundaries = function() {
+    Chart.prototype.computeBoundaries = function() {
       var chart = this;
 
       if (this._data.length === 0) {
@@ -167,15 +167,15 @@
       this.labelWidth = this.barWidth - this.labelPadding * 2;
   
       var heightScale = d3.scale[this.heightScaleType]()
-        .domain([1, this._maximum - this._minimum + 1])
+        .domain([1, this.maximum - this.minimum + 1])
         .range([this.minBarSize, this.maxBarSize]);
 
       this.heightScale = function(val) {
         //shift domain to [1, max - min + 1] so it plays-nice with log, etc.
-        return heightScale(val + 1 - chart._minimum);
+        return heightScale(val + 1 - chart.minimum);
       };
       this.heightScale.invert = function(val) {
-        return heightScale.invert(val) + chart._minimum - 1;
+        return heightScale.invert(val) + chart.minimum - 1;
       };
 
       //record-group scale which maps group number to x-coord of left-most bar in the group
@@ -208,7 +208,7 @@
       };
     };
   
-    BarChart.prototype.render = function() {
+    Chart.prototype.render = function() {
       if (!this.$container) {
         if (this.container === undefined) {
           this.container = document.body;
@@ -226,7 +226,7 @@
         .style('height', this.height + 'px')
         .style('width', this.width + 'px');
 
-      if (this._data === undefined || this._data.length == 0) {
+      if (this._data === undefined || this._data.length === 0) {
         this.$container.classed('no-data', true);
         this.svg.remove();
         delete this.svg;
@@ -250,8 +250,8 @@
       }
 
       if (d3.scale[this.heightScaleType] === undefined) {
-        console.warn('Invalid heightScaleType "' + this.heightScaleType + '", using "' + BarChart.prototype.heightScaleType + '" instead.');
-        this.heightScaleType = BarChart.prototype.heightScaleType;
+        console.warn('Invalid heightScaleType "' + this.heightScaleType + '", using "' + Chart.prototype.heightScaleType + '" instead.');
+        this.heightScaleType = Chart.prototype.heightScaleType;
       }
   
       var bars = this.svg.selectAll('rect').data(this._data, getId);
@@ -281,15 +281,15 @@
       this.hasRendered = true;
     };
 
-    BarChart.prototype.addNewBars = function(bars) {
+    Chart.prototype.addNewBars = function(bars) {
       var enter = bars.enter();
 
       if (!enter.empty()) {
         enter = enter.append('rect')
           .attr('x', byIndex(this.xScale))
-          .attr('y', this.yScale(this._minimum))
+          .attr('y', this.yScale(this.minimum))
           .attr('width', this.hasRendered ? '0' : this.barWidth)
-          .attr('height', this.heightScale(this._minimum))
+          .attr('height', this.heightScale(this.minimum))
           .style('opacity', this.hasRendered ? '0' : '1')
           .style('fill', byDatasetIndex(this.barColors, this.numDatasets));
       }
@@ -297,7 +297,7 @@
       return Q(enter);
     };
 
-    BarChart.prototype.addNewLabelsTop = function(labelsTop) {
+    Chart.prototype.addNewLabelsTop = function(labelsTop) {
       var enter = labelsTop.enter();
 
       if (!enter.empty()) {
@@ -306,7 +306,7 @@
           .text(getLabelTop)
           .style('position', 'absolute')
           .style('color', byDatasetIndex(this.labelTopColors, this.numDatasets))
-          .style('top', this.labelTopYScale(this._minimum, this) + 'px')
+          .style('top', px(_.partial(this.labelTopYScale, this.minimum)))
           .style('left', px(byIndex(this.xScale)))
           .style('width', this.hasRendered ? '0' : this.barWidth + 'px')
           .style('opacity', this.hasRendered ? '0' : '1')
@@ -317,7 +317,7 @@
       return Q(enter);
     };
 
-    BarChart.prototype.addNewLabelsInside = function(labelsInside) {
+    Chart.prototype.addNewLabelsInside = function(labelsInside) {
       var enter = labelsInside.enter();
 
       if (!enter.empty()) {
@@ -337,13 +337,13 @@
             .style('left', '0')
             .style('text-align', 'center')
             .style('width', '100%')
-            .text(this._minimum);
+            .text(this.minimum);
       }
 
       return Q(enter);
     };
 
-    BarChart.prototype.removeOldBars = function(bars) {
+    Chart.prototype.removeOldBars = function(bars) {
       var exit = bars.exit();
 
       if (exit.empty()) {
@@ -359,7 +359,7 @@
       }
     };
 
-    BarChart.prototype.removeOldLabelsTop = function(labelsTop) {
+    Chart.prototype.removeOldLabelsTop = function(labelsTop) {
       var exit = labelsTop.exit();
 
       if (exit.empty()) {
@@ -375,7 +375,7 @@
       }
     };
 
-    BarChart.prototype.removeOldLabelsInside = function(labelsInside) {
+    Chart.prototype.removeOldLabelsInside = function(labelsInside) {
       var exit = labelsInside.exit();
 
       if (exit.empty()) {
@@ -391,7 +391,7 @@
       }
     };
 
-    BarChart.prototype.transitionBars = function(bars) {
+    Chart.prototype.transitionBars = function(bars) {
       if (bars.empty()) {
         return Q(bars);
       }
@@ -407,7 +407,7 @@
       }
     };
 
-    BarChart.prototype.transitionLabelsTop = function(labelsTop) {
+    Chart.prototype.transitionLabelsTop = function(labelsTop) {
       if (labelsTop.empty()) {
         return Q(labelsTop);
       }
@@ -422,7 +422,7 @@
       }
     };
 
-    BarChart.prototype.transitionLabelsInside = function(labelsInside) {
+    Chart.prototype.transitionLabelsInside = function(labelsInside) {
       var chart = this;
 
       if (labelsInside.empty()) {
@@ -455,18 +455,18 @@
         }
         //otherwise, pass them through the prettifyNumber routine
         else {
-          //TODO make sure this still works
-          labelsInside.selectAll('div')
-            .html(this.prettifyNumber);
+          labelsInside.each(function(d, i) {
+            d3.select(this).select('div').html(chart.prettifyNumber(getValue(d)));
+          });
         }
 
         return this.transitionPromise(labelsInsideTransition);
       }
     };
   
-    BarChart.prototype.LN10x2 = Math.LN10 * 2;
+    var LN10x2 = Math.LN10 * 2;
     //TODO ability to parameterize based on domain of dataset?
-    BarChart.prototype.prettifyNumber = function(num) {
+    Chart.prototype.prettifyNumber = function(num) {
       var suffixes = ' kMBT';
       var abs = Math.abs(num);
       var mag;
@@ -475,7 +475,7 @@
       }
       else {
         //average with magnitude of num + 1 to correct for floating-point error
-        mag = Math.floor((Math.log(abs) + Math.log(abs + 1)) / (BarChart.prototype.LN10x2));
+        mag = Math.floor((Math.log(abs) + Math.log(abs + 1)) / (LN10x2));
       }
   
       if (mag >= 3) {
@@ -497,7 +497,7 @@
       }
     };
 
-    BarChart.prototype.transitionPromise = function(transition) {
+    Chart.prototype.transitionPromise = function(transition) {
       var defer = Q.defer();
       var count = 0;
       var size = transition.size();
@@ -512,8 +512,8 @@
       return defer.promise;
     };
  
-    return BarChart;
-  };
+    return Chart;
+  }
 
   if (typeof define === 'function' && define.amd) {
     define('barchart', ['d3', 'underscore', 'q'], defineBarChart);
@@ -522,9 +522,9 @@
     module.exports = defineBarChart(require('d3'), require('underscore'), require('q'));
   }
   else {
-    BarChart = defineBarChart(d3, _, Q);
+    global.BarChart = defineBarChart(d3, _, Q);
   }
-}());
+}(typeof window !== 'undefined' ? window : this));
 
 },{"d3":4,"q":5,"underscore":6}],2:[function(require,module,exports){
 var BarChart = require('..');
@@ -537,8 +537,6 @@ function randomItems(num) {
 }
 
 var chart = new BarChart({
-  barColors: ['#00AB8E', '#33CCDD'],
-  labelInsideColors: ['#FFF', '#333'],
   autoScale: true,
   minimum: 0,
   maximum: 100,
