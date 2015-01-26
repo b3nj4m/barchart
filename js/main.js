@@ -8,8 +8,6 @@ function randomItems(num) {
 }
 
 var chart = new BarChart({
-  barColors: ['#00AB8E', '#33CCDD'],
-  labelInsideColors: ['#FFF', '#333'],
   autoScale: true,
   minimum: 0,
   maximum: 100,

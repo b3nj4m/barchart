@@ -2,7 +2,6 @@
 //TODO trend lines
 //TODO support overlay as well as side-by-side
 //TODO warnings about bad heightScale + domain choices
-//TODO should have pretty set of default colors for up to X datasets
 //TODO hover states and click events
 //TODO allow as much as possible to be overriden with css
 //TODO graceful failure when data is missing values or labels, etc.
